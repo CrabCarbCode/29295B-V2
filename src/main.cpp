@@ -41,9 +41,8 @@ library shenanigans
 bool twoStickMode = true;  // toggles single or float stick drive
 int deadband = 5;          // if the controller sticks are depressed less than deadband%, input will be ignored (to combat controller drift)
 
-const float autonDriveMult =
-    1.0;  // unused variable to increase / decrease speed of autonomous driving. just make a good drivetrain lol you'll be fine
-
+const float autonDriveMult = 1.0;  // unused variable to increase / decrease speed of autonomous driving.
+// just make a good drivetrain lol you'll be fine
 
 const float Pi = 3.14159265358;
 const float e = 2.71828182845;
@@ -77,7 +76,7 @@ int tabVar = 1;
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
-#pragma region HelperFunctions //unit conversions and whatnot
+#pragma region HelperFunctions //small, lightweight math / logic functions used across the program
 
 const char *toChar(std::string string) { return string.c_str(); }
 
@@ -125,6 +124,18 @@ void lcdControl() {
   }
 }
 
+#pragma endregion
+
+
+// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
+
+
+// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
+
+#pragma region ActualCompetitionFunctions
+
 bool MoveLeftDrive(float desPower, int8_t screenIndex) {
   LDrive600.move_velocity(desPower * 6);
   LDriveBackM.move_velocity(desPower * 2);
@@ -139,10 +150,6 @@ bool MoveRightDrive(float desPower, int8_t screenIndex) {
   return IsWithinRange((RDriveFrontM.get_actual_velocity() - (6 * desPower)), -3, 3) ? true : false;
 }
 
-#pragma endregion
-
-
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
 #pragma region PID //the code behind the autonomous Proportional Integral Derivative controller
@@ -200,7 +207,10 @@ float rotationalPower = 0;
 
 #pragma endregion  // end of PID variable declaration
 
+
+
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
 
 int stuckTimeStamp = 0;
 int avgMotorPosition = 0;
@@ -260,7 +270,11 @@ bool AutonPID() {
   return (fabs(errorProportionalL) <= (3 * degPerCM) && fabs(errorProportionalR) <= 1.5) ? true : false;  // return true if done movement
 }
 
+
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
+
+
 #pragma region debugFunctions
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -342,33 +356,18 @@ void tunePID() {  // turns or oscilates repeatedly to test and tune the PID, all
   }
 }
 
-#pragma endregion
+#pragma endregion  // end of the PID debug section
+
 
 #pragma endregion  // end of PID block
 
 
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-
-
-#pragma region ActualCompetitionFunctions
 
 #pragma region AutonFunctions //Functions for autonomous control
 
-float previousErrorF = 0;  // previous error variable for the flystick arm
-
-bool allowAdjust = false;
-
-
-
-int prevWheelPos;
-int bopItSelectTimeStamp = 0;
 
 int selectorStage = 0;
 int selectedRoute = 3;
-
-int startingWheelPos;
-
-
 
 void controllerAutonSelect() {  // cool, efficient, but controllers are disabled during pre-auton so entirely useless
 
@@ -479,6 +478,7 @@ void ReadAutonStep() {
 
 #pragma region UserControlFunctions //handles all functions involving user input
 
+
 int rotationalAccelX = 0;
 int lateralAccelX = 0;
 
@@ -572,7 +572,6 @@ void WingsControl() {  // done
 
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-// //
 
 
 #pragma region Pregame //code which executes before a game starts
@@ -586,16 +585,12 @@ void initialize() {
 
   FullDrive.set_brake_modes(E_MOTOR_BRAKE_COAST);
 
-  FlywheelM.set_brake_mode(E_MOTOR_BRAKE_COAST);
+  // defaultArmPos = ArmRot.get_position() / 100;
 
-  FlystickArmM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-  ArmRot.reverse();
-
-  defaultArmPos = ArmRot.get_position() / 100;
   Inertial.reset(true);
 }
 
-void disabled() {}
+void disabled() {}  // robot no workey when ref says no workey
 
 
 void competition_initialize() {  // auton selector (bop-it!)
@@ -692,13 +687,9 @@ void defenceAuton() {  // starting on the team side of the field (match loading)
 
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-// //
-
 
 
 void autonomous() {
-  // selectedRoute = 3;
-
   switch (selectedRoute) {
     case 1:
       skillsAuton();
@@ -720,7 +711,7 @@ void autonomous() {
 
     float inerHeading = (Inertial.get_heading() > 180) ? (-1 * (360 - Inertial.get_heading())) : Inertial.get_heading();
 
-    bool stepPIDIsComplete = AutonPID();
+    bool stepPIDIsComplete = AutonPID();  // casting to a local var to prevent calling the PID function multiple times
 
 #pragma region diagnostics
 
@@ -772,28 +763,20 @@ void autonomous() {
 
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-// //
 
 
 
 void opcontrol() {
   competition_initialize();
   // autonomous();
-
   // tunePID();
-
-  /*flywheelFWD = true;
-
-  flywheelOn = false;
-
-  // flystickArmPos = 3; //ACTUAL DRIVE CODE, UNCOMMENT IF UPLOADING DRIVE
 
   while (true) {
     DrivingControl(1);
-    WingsControl()
+    WingsControl();
     lcdControl();
 
     globalTimer++;
     delay(tickDelay);
-  }*/
+  }
 }
