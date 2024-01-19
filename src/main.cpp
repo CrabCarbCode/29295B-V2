@@ -476,7 +476,20 @@ void ReadAutonStep() {
 
 #pragma endregion  // end of AutonFunctions
 
+
+
 #pragma region UserControlFunctions //handles all functions involving user input
+
+
+void ArmControl(int8_t printingPage) {
+  if (MainControl.get_digital(DIGITAL_UP)) {
+    ArmM.move_velocity(100);
+  } else if (MainControl.get_digital(DIGITAL_DOWN)) {
+    ArmM.move_velocity(-100);
+  } else {
+    ArmM.move_velocity(0);
+  }
+}
 
 
 int rotationalAccelX = 0;
@@ -764,7 +777,7 @@ void autonomous() {
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
-
+// 221A0F
 
 void opcontrol() {
   competition_initialize();
@@ -773,6 +786,7 @@ void opcontrol() {
 
   while (true) {
     DrivingControl(1);
+    ArmControl(-1);
     WingsControl();
     lcdControl();
 
