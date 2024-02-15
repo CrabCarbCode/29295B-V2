@@ -63,6 +63,7 @@ int minPrintingDelay = (ticksPerSec / tickDeltaTime) + 0.5;  // ticksPerSec / ti
 const float degPerCM = (360 / (4.1875 * Pi * 2.54)) * (84.0f / 36.0);  // # of degrees per centimeter = 360 / (2Pir" * 2.54cm/") * gear ratio
 
 int maxIntakeSpeed = 70;  // max intakeSpeed as a percent
+int maxKickerSpeed = 60;
 int armLevel = 1;
 const int maxArmLevel = 2;
 
@@ -187,7 +188,6 @@ int pageRangeFinder(int index) {                 // calculates which page(s) a
 
   return startingPage;
 }
-
 
 void PrintToController(std::string prefix, double data, int numOfDigits, int row, int page) {  // handles single numbers
   if (currentPage == page && (globalTimer % 9 == (row * 3))) {
@@ -527,35 +527,42 @@ float prevErrorF = 0;
 bool ManageArm(bool isPrinting) {
   const float armDeadband = 0.25;
 
-  const float lF = 1.0;
-  const float lD = 1.0;
-  const float lO = 1.0;
+  const float fP = 1.0;
+  const float fD = 1.0;
+  const float fO = 1.0;
 
-  int desArmPos;
+  float desArmPos;
   switch (armLevel) {
     case 0:
       break;
     case 1:
-      desArmPos = 0.5;
+      desArmPos = 0;
       break;
     case 2:
-      desArmPos = 338;
+      desArmPos = 698;
       break;
   }
 
-  const float currArmPos = ArmRot.get_angle() / 100;
+  const float currArmPos = ArmRot.get_position() / 100;
 
-  const float currErrorF = lF * (currArmPos - desArmPos);
-  const float currErrorD = lD * (currErrorF - prevErrorF) / 2;
+  const float currErrorF = fP * (currArmPos - desArmPos);
+  const float currErrorD = fD * (currErrorF - prevErrorF) / 2;
 
-  /*if (isPrinting && isPrintingList[0]) {
+  if (isPrinting && isPrintingList[0]) {
     PrintToController("Position: ", armLevel, 1, 0, 1);
     PrintToController("Rotation: ", currArmPos, 5, 1, 1);
     PrintToController("Error: ", currErrorF, 5, 2, 1);
-  }*/
+  }
 
-  if (fabs(currErrorF) < armDeadband) {
-    LiftM.move_velocity(lO * (currErrorF + currErrorD));
+  prevErrorF = currErrorF;
+
+  if (fabs(currErrorF) > armDeadband) {  // if target has not been hit
+    LiftM.move_velocity(fO * (currErrorF + currErrorD));
+    return false;
+  } else {  // if target has been hit
+    LiftM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+    LiftM.move_velocity(0);
+    return true;
   }
 }
 
@@ -692,9 +699,11 @@ void RCIntakeControls() { IntakeM.move_velocity(maxIntakeSpeed * 6 * (MainContro
 
 void ControlArm() {
   if (MainControl.get_digital_new_press(DIGITAL_UP) && armLevel < maxArmLevel) {
+    LiftM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
     armLevel++;
   }
-  if (MainControl.get_digital_new_press(DIGITAL_UP) && armLevel > 1) {
+  if (MainControl.get_digital_new_press(DIGITAL_DOWN) && armLevel > 1) {
+    LiftM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
     armLevel--;
   }
 }
@@ -1156,6 +1165,9 @@ void initialize() {
 
   FullDrive.set_brake_modes(E_MOTOR_BRAKE_COAST);
 
+  ArmRot.reset_position();
+  KickerM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+
   Inertial.reset(true);
 }
 
@@ -1290,8 +1302,7 @@ void autonomous() {
 
 
 
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-// //
+// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
 
@@ -1314,8 +1325,14 @@ void opcontrol() {
     DrivingControl(true);
     WingsControl();
     RCIntakeControls();
-    // ControlArm();
-    // ManageArm(true);
+    ControlArm();
+    ManageArm(true);
+
+    if (MainControl.get_digital(DIGITAL_A)) {
+      KickerM.move_velocity(2 * maxKickerSpeed);
+    } else {
+      KickerM.move_velocity(0);
+    }
 
     lcdControl();
 

@@ -6,7 +6,7 @@
  * motors end with M
  */
 pros::Controller MainControl(E_CONTROLLER_MASTER);  // declared with "pros::" to avoid ambiguity with stock vex controller
-
+pros::Controller SideControl(E_CONTROLLER_PARTNER);
 
 Motor LDriveFrontM(12, E_MOTOR_GEARSET_06, true, E_MOTOR_ENCODER_DEGREES);
 Motor LDriveMidM(6, E_MOTOR_GEARSET_06, true, E_MOTOR_ENCODER_DEGREES);
@@ -19,7 +19,7 @@ Motor RDriveBackM(16, E_MOTOR_GEARSET_18, true, E_MOTOR_ENCODER_DEGREES);  // 5.
 Motor LiftM(1, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
 
 Motor IntakeM(10, E_MOTOR_GEARSET_18, false, E_MOTOR_ENCODER_DEGREES);
-Motor KickerM(15, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
+Motor KickerM(3, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
 
 ADIDigitalOut WingPR('G');
 ADIDigitalOut WingPL('H');
