@@ -25,6 +25,7 @@ ADIDigitalOut WingPR('G');
 ADIDigitalOut WingPL('H');
 
 Imu Inertial(4);  // initializing the Inertial sensor
+Rotation ArmRot(9);
 Rotation LOdem(20);
 Rotation ROdem(19);
 Rotation SOdem(18);

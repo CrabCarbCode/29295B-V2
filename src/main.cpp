@@ -63,7 +63,8 @@ int minPrintingDelay = (ticksPerSec / tickDeltaTime) + 0.5;  // ticksPerSec / ti
 const float degPerCM = (360 / (4.1875 * Pi * 2.54)) * (84.0f / 36.0);  // # of degrees per centimeter = 360 / (2Pir" * 2.54cm/") * gear ratio
 
 int maxIntakeSpeed = 70;  // max intakeSpeed as a percent
-int armPos = 1;
+int armLevel = 1;
+const int maxArmLevel = 2;
 
 int lastUpTimestamp = 0;
 int lastDownTimestamp = 0;
@@ -521,8 +522,42 @@ std::array<int, 6> ReadAutonStep(int currStep) {  // this entire function is kin
 }
 
 bool ArmUp = false;  // check if arm start down
+float prevErrorF = 0;
 
-bool ManageArm(bool isPrinting) {}
+bool ManageArm(bool isPrinting) {
+  const float armDeadband = 0.25;
+
+  const float lF = 1.0;
+  const float lD = 1.0;
+  const float lO = 1.0;
+
+  int desArmPos;
+  switch (armLevel) {
+    case 0:
+      break;
+    case 1:
+      desArmPos = 0.5;
+      break;
+    case 2:
+      desArmPos = 338;
+      break;
+  }
+
+  const float currArmPos = ArmRot.get_angle() / 100;
+
+  const float currErrorF = lF * (currArmPos - desArmPos);
+  const float currErrorD = lD * (currErrorF - prevErrorF) / 2;
+
+  /*if (isPrinting && isPrintingList[0]) {
+    PrintToController("Position: ", armLevel, 1, 0, 1);
+    PrintToController("Rotation: ", currArmPos, 5, 1, 1);
+    PrintToController("Error: ", currErrorF, 5, 2, 1);
+  }*/
+
+  if (fabs(currErrorF) < armDeadband) {
+    LiftM.move_velocity(lO * (currErrorF + currErrorD));
+  }
+}
 
 #pragma endregion  // end of AutonFunctions
 
@@ -655,6 +690,15 @@ void DrivingControl(bool isPrinting) {  // resoponsible for user control of the 
 // handles user control of intake
 void RCIntakeControls() { IntakeM.move_velocity(maxIntakeSpeed * 6 * (MainControl.get_digital(DIGITAL_L1) - MainControl.get_digital(DIGITAL_R1))); }
 
+void ControlArm() {
+  if (MainControl.get_digital_new_press(DIGITAL_UP) && armLevel < maxArmLevel) {
+    armLevel++;
+  }
+  if (MainControl.get_digital_new_press(DIGITAL_UP) && armLevel > 1) {
+    armLevel--;
+  }
+}
+
 bool RWingLockedOut = false;
 bool LWingLockedOut = false;
 
@@ -679,6 +723,7 @@ void WingsControl() {  // controls... wings
 
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
 
 
 #pragma region debugFunctions
@@ -854,6 +899,7 @@ void tuneDrive(bool isPrinting) {  // allows for user driving, with real time co
 
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
 
 
 #pragma region dataStorage // should be ported to individual header files at some point
@@ -1096,6 +1142,7 @@ void userControlPrinting() {
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
+
 #pragma region Pregame //code which executes before a game starts
 
 void initialize() {
@@ -1231,7 +1278,7 @@ void autonomous() {
     PrintToController("ErrorH: ", proportionalErrorR, 3, 2, startingPage + 1);
 
     PrintToController("FWingsOut?: ", nextCommand.at(4), 1, 0, startingPage + 2);
-    PrintToController("FArmPos: ", ((nextCommand.at(2) > 0) ? nextCommand.at(3) : armPos), 1, 1, startingPage + 2);
+    PrintToController("FArmPos: ", ((nextCommand.at(2) > 0) ? nextCommand.at(3) : armLevel), 1, 1, startingPage + 2);
     PrintToController("FWheelSpd: ", nextCommand.at(3), 3, 2, startingPage + 2);
 
 #pragma endregion  // Diagnostics
@@ -1243,7 +1290,8 @@ void autonomous() {
 
 
 
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+// //
 
 
 
@@ -1260,11 +1308,14 @@ void opcontrol() {
 #pragma endregion
 
   userControlPrinting();
+  isPrintingList[0] = true;
 
   while (true) {
     DrivingControl(true);
     WingsControl();
     RCIntakeControls();
+    // ControlArm();
+    // ManageArm(true);
 
     lcdControl();
 
