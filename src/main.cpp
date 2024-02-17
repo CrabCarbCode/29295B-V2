@@ -43,8 +43,7 @@ This is my code, and thus it is my god given right to use it as a diary. ignore 
 ///// Control Variables //////
 
 
-bool twoStickMode = true;  // toggles single or float stick drive
-const int deadband = 3;    // if the controller sticks are depressed less than deadband%, input will be ignored (to combat controller drift)
+const int deadband = 3;  // if the controller sticks are depressed less than deadband%, input will be ignored (to combat controller drift)
 
 const float autonDriveMult = 1.0;
 // unused variable to increase / decrease speed of autonomous driving. just make a good drivetrain lol you'll be fine
@@ -52,13 +51,10 @@ const float autonDriveMult = 1.0;
 const float Pi = 3.14159265358;
 const float e = 2.71828182845;
 
-int mStartPosL;
-int mStartPosR;
-
-int globalTimer = 0;
-const int ticksPerSec = 50;  // the number of 'ticks' in one second
-const int tickDeltaTime = 1000 / ticksPerSec;
-int minPrintingDelay = (ticksPerSec / tickDeltaTime) + 0.5;  // ticksPerSec / tickDeltaTime
+static int globalTimer = 0;
+static const int ticksPerSec = 50;  // the number of 'ticks' in one second
+static const int tickDeltaTime = 1000 / ticksPerSec;
+static int minPrintingDelay = (ticksPerSec / tickDeltaTime) + 0.5;  // ticksPerSec / tickDeltaTime
 
 const float degPerCM = (360 / (4.1875 * Pi * 2.54)) * (84.0f / 36.0);  // # of degrees per centimeter = 360 / (2Pir" * 2.54cm/") * gear ratio
 
@@ -67,11 +63,7 @@ int maxKickerSpeed = 60;
 int armLevel = 1;
 const int maxArmLevel = 2;
 
-int lastUpTimestamp = 0;
-int lastDownTimestamp = 0;
-int lastSpinTimestamp = 0;
-
-int currentPage = 1;
+static int currentPage = 1;
 
 #pragma endregion
 
@@ -523,7 +515,6 @@ std::array<int, 6> ReadAutonStep(int currStep) {  // this entire function is kin
 
 bool ArmUp = false;  // check if arm start down
 float prevErrorF = 0;
-
 bool ManageArm(bool isPrinting) {
   const float armDeadband = 0.25;
 
@@ -581,7 +572,7 @@ int activeBrakeTimeStamp = 0;
 
 int reverseDriveMult = 1;
 
-void DrivingControl(bool isPrinting) {  // resoponsible for user control of the drivetrain
+void DrivingControl(bool isPrinting) {  // resoponsible for user control of the drivetrainint gift
 
   switch (MainControl.get_digital_new_press(DIGITAL_L2) - MainControl.get_digital_new_press(DIGITAL_R2)) {
     case -1:
@@ -599,7 +590,7 @@ void DrivingControl(bool isPrinting) {  // resoponsible for user control of the 
   float XStickPercent = StickSmoothingFunc(MainControl.get_analog(E_CONTROLLER_ANALOG_LEFT_Y) / 1.27 * reverseDriveMult);  // w on graph
   float YStickPercent = StickSmoothingFunc(MainControl.get_analog(E_CONTROLLER_ANALOG_RIGHT_X) / 1.27);                    // s on graph
 
-  static float ptsPerTick = 4;
+  const float ptsPerTick = 4;
 
   // filter out stick drift / nonpressed sticks. saves resources by skipping calculations when not driving
   if ((abs(XStickPercent) + abs(YStickPercent)) >= deadband) {
@@ -607,14 +598,14 @@ void DrivingControl(bool isPrinting) {  // resoponsible for user control of the 
 
     // inreasing or decreasing the acceleration functions' timer
     LAccelTime += ((LAccelTime <= 100 && XStickPercent > deadband) || LAccelTime < 0) ? ptsPerTick : -ptsPerTick;  // Y(x) on graph
-    RAccelTime += ((RAccelTime <= 100 && YStickPercent > deadband) || RAccelTime < 0) ? ptsPerTick : -ptsPerTick;  // X(x) on graph
+    RAccelTime += ((RAccelTime <= 100 && YStickPercent > deadband) || RAccelTime < 0) ? 1 : -1;                    // X(x) on graph
 
 
     // applying the acceleratory curve to the stick inputs, multiplies the stick values by the output of the accel smoothing function
 
     int lateralOutput = AccelSmoothingFunc(LAccelTime) * XStickPercent;
 
-    float rotationalMult = ((-0.001 * powf(lateralOutput, 2)) + (-0.25 * lateralOutput) + 100) / 100;
+    float rotationalMult = ((-0.001 * powf(lateralOutput, 2)) + (-0.25 * lateralOutput) + 80) / 100;
     // graphed and explained here: [https://www.desmos.com/calculator/03mizqcj4f]
 
     int rotationalOutput = (rotationalMult * AccelSmoothingFunc(RAccelTime) * YStickPercent);  // ((100 - abs(lateralOutput)) / 100)
@@ -915,7 +906,7 @@ void tuneDrive(bool isPrinting) {  // allows for user driving, with real time co
 
 #pragma region autonRoutes
 
-int totalNumOfCommands;
+static int totalNumOfCommands;
 
 void skillsAuton() {
   // autonCommands[ autonStep ] = { latDist(cm), rotDist(degrees), armPos(1-5, 0 = no change), flywheelSpeed(%), wings[vvv], delay(sec) }
@@ -1159,9 +1150,6 @@ void initialize() {
 
   WingPL.set_value(false);
   WingPR.set_value(false);
-
-  mStartPosL = LDriveMidM.get_position();
-  mStartPosR = RDriveMidM.get_position();
 
   FullDrive.set_brake_modes(E_MOTOR_BRAKE_COAST);
 
