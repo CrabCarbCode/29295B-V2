@@ -1,16 +1,5 @@
 #include "data-storage.h"
 
-#include <math.h>    //neccessary for functions like abs() and round()
-#include <stdlib.h>  //neccessary for std::[commands]
-
-#include <cmath>
-#include <cstring>
-#include <sstream>  //neccessary for... logic
-#include <string>   //neccessary for... using strings :sob:
-
-#include "custPrinting.h"
-
-
 #pragma region autonRoutes
 
 int debugRoute(autonCommand currCommandList[]) {

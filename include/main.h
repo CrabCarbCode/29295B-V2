@@ -39,8 +39,23 @@
 /**
  * You should add more #includes here
  */
-//#include "okapi/api.hpp"
-//#include "pros/api_legacy.h"
+// #include "okapi/api.hpp"
+// #include "pros/api_legacy.h"
+
+#include <math.h>    //neccessary for functions like abs() and round()
+#include <stdlib.h>  //neccessary for std::[commands]
+
+#include <cmath>
+#include <cstring>
+#include <sstream>  //neccessary for... logic
+#include <string>   //neccessary for... using strings :sob:
+
+#include "custPrinting.h"
+#include "data-storage.h"
+#include "debugging.h"
+#include "robot-config.h"  //importing the motors and whatnot
+#include "userControl.h"
+
 
 /**
  * If you find doing pros::Motor() to be tedious and you'd prefer just to do
@@ -51,6 +66,7 @@
  * namespace.
  */
 using namespace pros;
+using namespace std;
 // using namespace pros::literals;
 // using namespace okapi;
 
@@ -75,7 +91,7 @@ void opcontrol(void);
 /**
  * You can add C++-only headers here
  */
-//#include <iostream>
+// #include <iostream>
 #endif
 
 #endif  // _PROS_MAIN_H_

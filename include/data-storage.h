@@ -1,3 +1,12 @@
+#include <math.h>    //neccessary for functions like abs() and round()
+#include <stdlib.h>  //neccessary for std::[commands]
+
+#include <cmath>
+#include <cstring>
+#include <sstream>  //neccessary for... logic
+#include <string>   //neccessary for... using strings :sob:
+
+#include "custPrinting.h"
 #include "main.h"
 
 
@@ -91,6 +100,19 @@ const int minPrintingDelay = (ticksPerSec / tickDeltaTime) + 0.5;  // ticksPerSe
 
 const float Pi = 3.14159265358;
 const float e = 2.71828182845;
+
+const int deadband = 3;  // if the controller sticks are depressed less than deadband%, input will be ignored (to combat controller drift)
+
+const float autonDriveMult = 1.0;
+// unused variable to increase / decrease speed of autonomous driving. just make a good drivetrain lol you'll be fine
+
+int maxIntakeSpeed = 70;  // max intakeSpeed as a percent
+int maxKickerSpeed = 60;
+
+int armLevel = 1;
+const int maxArmLevel = 2;
+
+int currentPage = 1;
 
 const float degPerCM = (360 / (4.1875 * Pi * 2.54)) * (84.0f / 36.0);  // # of degrees per centimeter = 360 / (2Pir" * 2.54cm/") * gear ratio
 

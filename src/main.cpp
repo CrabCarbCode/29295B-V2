@@ -1,47 +1,6 @@
-#pragma region BoringConfigStuff
-
 #include "main.h"
 
-#include <math.h>    //neccessary for functions like abs() and round()
-#include <stdlib.h>  //neccessary for std::[commands]
-
-#include <cmath>
-#include <cstring>
-#include <sstream>  //neccessary for... logic
-#include <string>   //neccessary for... using strings :sob:
-
-#include "custPrinting.h"
-#include "data-storage.h"
-#include "debugging.h"
-#include "robot-config.h"  //importing the motors and whatnot
-
-using namespace std;
-
 // This is my code, and thus it is my god given right to use it as a diary. ignore the strange comments
-
-#pragma endregion
-
-
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-
-
-#pragma region GlobalVars
-
-///// Control Variables //////
-
-
-const int deadband = 3;  // if the controller sticks are depressed less than deadband%, input will be ignored (to combat controller drift)
-
-const float autonDriveMult = 1.0;
-// unused variable to increase / decrease speed of autonomous driving. just make a good drivetrain lol you'll be fine
-
-
-int maxIntakeSpeed = 70;  // max intakeSpeed as a percent
-int maxKickerSpeed = 60;
-int armLevel = 1;
-const int maxArmLevel = 2;
-
-static int currentPage = 1;
 
 #pragma endregion
 
@@ -68,25 +27,6 @@ const float GreaterOf(T num1, T num2) {
 
 const bool IsWithinRange(float num, float lowerBound, float upperBound) { return num >= lowerBound && num <= upperBound; }
 
-
-
-// i have no idea what im doing
-float AccelSmoothingFunc(int time) {  // returns a multiplier 0 to 1 based on time
-  float x = time / 100;               // converting the input from percentage to a decimal btween 0-1
-
-  const float multiplier =
-      (0.5 / (ACurveExtremity * sqrt(2 * Pi))) * powf(e, (-0.5 * pow(((AMinAmount * x - AMinAmount * peakPos) / ACurveExtremity), 2)));
-  return time >= (100) ? multiplier : 1;
-}  // function graphed here: [https://www.desmos.com/calculator/y0fwlh6j47]
-
-
-// i now have some idea what im doing
-float StickSmoothingFunc(float stickVal) {
-  float curveExponent = (abs(stickVal) - 100) / (10 * ACurveExtremity);
-  float linearExponent = (-1 / (10 * linearHarshness));
-
-  return (stickVal * (powf(e, linearExponent) + ((1 - powf(e, linearExponent)) * powf(e, curveExponent))));
-}  // function graphed here: [https://www.desmos.com/calculator/ti4hn57sa7]
 
 bool LDrive(float desPowerPercent) {
   LDrive600.move_velocity(desPowerPercent * 6);
