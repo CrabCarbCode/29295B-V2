@@ -1,4 +1,5 @@
-#include <data-storage.h>
+#include "data-storage.h"
+
 #include <math.h>    //neccessary for functions like abs() and round()
 #include <stdlib.h>  //neccessary for std::[commands]
 
@@ -7,191 +8,252 @@
 #include <sstream>  //neccessary for... logic
 #include <string>   //neccessary for... using strings :sob:
 
+#include "custPrinting.h"
+
+
 #pragma region autonRoutes
-template <typename T, size_t N>
-int totalNumOfCommands;
 
-static void skillsAuton(std::array<N, T> &autonCommands) {
-  // autonCommands[ autonStep ] = { latDist(cm), rotDist(degrees), armPos(1-5, 0 = no change), flywheelSpeed(%), wings[vvv], delay(sec) }
-  // wings: 0 = none, 1 = both, 2 = right, 3 = left
+int debugRoute(autonCommand currCommandList[]) {
+  // dist /rotation: in cm / degrees (relative to current position)
+  // wings : 0 = niether, 1 = both, 2 = left, 3 = right, relative to intake as back
+  // intake / kickers: in % speed, delay is in seconds
+  // arm position: higher number = more up
 
-  autonCommands[0] = {0, 0, 0, 0, 0, 0};      // [null padding, [DO NOT REMOVE] start parallel to match loading bar, front facing wall
-  autonCommands[1] = {-55, 0, 0, 0, 0, 0};    // back along the match loading bar
-  autonCommands[2] = {-10, 45, 0, 0, 0, 0};   // turn so back faces net [distance]***
-  autonCommands[3] = {-30, 0, 0, 0, 0, 0};    // ram triballs under net
-  autonCommands[4] = {37, 0, 0, 0, 0, 0};     // pull out of net, almost to match-load bar
-  autonCommands[5] = {5, -90, 0, 0, 0, 0};    // turn 90 to face target (close net corner)
-  autonCommands[6] = {-8, -14, 3, 0, 0, 0};   // drive back to barely touch bar [distance]***, raise arm
-  autonCommands[7] = {0, 0, 0, 90, 0, 1};     // match load, 20 seconds?
-  autonCommands[8] = {10, 0, 0, 0, 0, 0};     // fwd from match load bar
-  autonCommands[9] = {0, -130, 0, 0, 0, 0};   // turn so back is towards gutter
-  autonCommands[10] = {82, 0, 0, 0, 0, 0};    // drive into mouth of gutter
-  autonCommands[11] = {16, -38, 0, 0, 0, 0};  // turn to face gutter
-  autonCommands[12] = {105, 0, 0, 0, 0, 0};   // drive down length of gutter
-  autonCommands[13] = {61, 0, 0, 0, 0, 0};    // drive down length of gutter
-  autonCommands[14] = {0, -45, 0, 0, 2, 0};   // open right wing to clear ML corner, turn towards net
-  autonCommands[15] = {61, 0, 0, 0, 2, 0};    // drive bckwds past ML bar
-  autonCommands[16] = {10, -45, 0, 0, 0, 0};  // close wings, turn to face net
-  autonCommands[17] = {20, 0, 0, 0, 0, 0};    // ram balls into bar
-  autonCommands[18] = {-30, 0, 0, 0, 0, 0};   // re-ram pt.1 (out)
-  autonCommands[19] = {30, 0, 0, 0, 0, 0};    // re-ram pt.2 (in)
-  autonCommands[20] = {-26, 0, 0, 0, 0, 0};   // pull out of net
-  autonCommands[21] = {0, 94, 0, 0, 0, 0};    // turn to face middle bar
-  autonCommands[22] = {-110, 0, 0, 0, 0, 0};  // drive almost up to middle bar
-  autonCommands[23] = {0, -46, 0, 0, 1, 0};   // open wings, turn to face net at angle
-  autonCommands[24] = {85, 0, 0, 0, 1, 0};    // ram orbs into net
-  autonCommands[25] = {-30, 0, 0, 0, 2, 0};   // re-ram pt.1 (out) (close left wing to avoid pushing triballs away from net)
-  autonCommands[26] = {30, 0, 0, 0, 1, 0};    // re-ram pt.2 (in)
-  autonCommands[27] = {-75, 0, 0, 0, 0, 0};   // close wings, back up
-  autonCommands[28] = {0, -45, 0, 0, 0, 0};   // turn to be in line with middle bar
-  autonCommands[29] = {50, 0, 0, 0, 3, 0};    // open wings ( only left wing would be nice, should implement), drive forward
-  autonCommands[30] = {0, 45, 0, 0, 3, 0};    // turn to be facing net (angled towards middle)
-  autonCommands[31] = {85, 0, 0, 0, 1, 0};    // ram orbs into net, open both wings
-  autonCommands[32] = {-30, 0, 0, 0, 2, 0};   // re-ram pt.1 (out), (close left wing to avoid pushing triballs away from net)
-  autonCommands[33] = {30, 0, 0, 0, 1, 0};    // re-ram pt.2 (in),
-  autonCommands[34] = {-65, 0, 0, 0, 0, 0};   // close wings, back up most of the way
-  autonCommands[35] = {0, -115, 0, 0, 0, 0};  // turn to be facing corner, more towards gutter
-  autonCommands[36] = {45, 0, 0, 0, 0, 0};    // drive towards corner
-  autonCommands[37] = {0, -50, 0, 0, 0, 0};   // turn so back is facing net
-  autonCommands[38] = {-45, 0, 0, 0, 1, 0};   // open wings, move along ML bar
-  autonCommands[39] = {0, -45, 0, 0, 0, 0};   // close wings, turn back directly towards net
-  autonCommands[40] = {110, 0, 0, 0, 0, 0};   // ram orbs into net
-  autonCommands[41] = {0, -90, 0, 0, 0, 0};   // re-ram pt.1 (out)
-  autonCommands[42] = {110, 0, 0, 0, 0, 0};   // re-ram pt.2 (in)
-  autonCommands[43] = {0, -90, 0, 0, 0, 0};   // move away
-  autonCommands[44] = {100, 0, 0, 0, 0, 0};   // Turn to go down
-  autonCommands[45] = {0, -90, 0, 0, 0, 0};   // Turn to go down
-  autonCommands[46] = {30, 0, 0, 0, 0, 0};    // Turn to go down
-  autonCommands[47] = {-30, 0, 0, 0, 0, 0};   // Turn to go down
-  autonCommands[48] = {30, 0, 0, 0, 0, 0};    // Turn to go down
-  autonCommands[49] = {-60, 0, 0, 0, 0, 0};   // Turn to go down
+  const int totalNumOfCommands = 8;
 
-  // samich yummmmmmmmmy
+  currCommandList[1].lateralDist = 25;  // drives fwd 25 cm
 
-  totalNumOfCommands = 50;  // manual verification that the num of steps is correct (last num in array + 1)
-  autonCommands->resize(totalNumOfCommands);
+  currCommandList[2].rotationalDist = 90;  // turn 90deg right
+
+  currCommandList[3].lateralDist = 25;  // drive fwd with both wings out
+  currCommandList[3].wingPattern = 1;   //
+
+  currCommandList[4].lateralDist = 25;     // retract wings, try a curved drive path right/fwd 25
+  currCommandList[4].rotationalDist = 90;  //
+  currCommandList[4].wingPattern = 0;      //
+
+  currCommandList[5].lateralDist = 25;   // raise the arm, run the intake and drive fwd 25cm
+  currCommandList[5].armPosition = 2;    //
+  currCommandList[5].intakeSpeed = 100;  //
+
+  currCommandList[6].rotationalDist = 90;  // turn 90deg right,
+  currCommandList[6].kickerSpeed = 75;     // shut off the intake (automatic)
+  currCommandList[6].totalStepDelay = 5;   //
+
+  currCommandList[7].armPosition = 1;       // turn 90deg left, lower arm
+  currCommandList[7].rotationalDist = -90;  //
+
+  currCommandList[8].lateralDist = -25;  // drive bwd 25cm, to starting area
+
+  currCommandList[9].rotationalDist = 720;  // try to go out of bounds, spin a lot
+
+  return totalNumOfCommands;
 }
 
-static void offenceAuton() {  // starting on the enemy side of the field (no match loading)
-  // autonCommands[ autonStep ] = { latDist(cm), rotDist(degrees), armPos(1-5, 0 = no change), flywheelSpeed(%), wings[vvv], delay(sec) }
-  // wings: 0 = none, 1 = both, 2 = right, 3 = left
 
-  // safe route, does not try to score ball under horizontal bar. If have extra time, go for unsafe route?
-  autonCommands[0] = {0, 0, 0, 0, 0, 0};      // [null padding, DO NOT REMOVE] start touching match load bar, facing towards middle triballs
-  autonCommands[1] = {10, 0, 0, 0, 0, 0};     // move slightly away from ML bar
-  autonCommands[2] = {0, 45, 0, 0, 0, 0};     // smack preload towards net
-  autonCommands[3] = {0, -45, 0, 0, 0, 0};    // course correct towards triball
-  autonCommands[4] = {85, 0, 2, 0, 0, 0};     // drive close to lower middle triball
-  autonCommands[5] = {10, 0, 3, 50, 0, 0};    // raise arm and drive to be barely touching middle triball with intake bands, spin flywheel
-  autonCommands[6] = {0, 110, 2, 0, 0, 0};    // lower arm, spin to be facing our net (slightly away from middle of field to prevent interference)**
-  autonCommands[7] = {0, 0, 0, -60, 0, 0};    // outtake orb
-  autonCommands[8] = {0, -200, 0, 0, 0, 0};   // turn to directly face upper middle orb
-  autonCommands[9] = {45, 0, 0, 0, 0, 0};     // drive close to orb
-  autonCommands[10] = {10, 0, 3, 50, 0, 0};   // drive such that bands touch orb, raise arm
-  autonCommands[11] = {5, 0, 2, 0, 0, 0};     // capture orb
-  autonCommands[12] = {-10, 0, 0, 0, 0, 0};   // back up slightly
-  autonCommands[13] = {0, 200, 0, 0, 0, 0};   // turn to face net (also slightly away from middle)
-  autonCommands[14] = {0, 0, 0, -60, 0, 0};   // outtake orb
-  autonCommands[15] = {80, 0, 0, 0, 2, 0};    // ram orbs under net with only right wing, to avoid risk of hitting opponents
-  autonCommands[16] = {-40, 0, 0, 0, 0, 0};   // back away from net
-  autonCommands[17] = {0, 145, 0, 0, 0, 0};   // turn towards corner triball
-  autonCommands[18] = {60, 0, 0, 0, 0, 0};    // get close to orb
-  autonCommands[19] = {10, 0, 3, 50, 0, 0};   // raise arm, creep towards orb & prep ''intake''
-  autonCommands[20] = {5, 0, 2, 0, 0, 0};     // capture orb
-  autonCommands[21] = {0, -130, 0, 0, 0, 0};  // turn to face space between ML bar and side of net
-  autonCommands[22] = {50, 0, 0, 0, 0, 0};    // drive until past the leg of the black horizontal bar
-  autonCommands[23] = {0, 0, 0, -75, 0, 0};   // bowl orb to be in front of the net's side *would be preferable to keep in intake entire time
-  // not sure outtaking is consistent enough for that though
-  autonCommands[24] = {0, 15, 0, 0, 0, 0};   // turn to face ML bar
-  autonCommands[25] = {35, 0, 0, 0, 0, 0};   // drive almost up to ML bar
-  autonCommands[26] = {0, -90, 0, 0, 2, 0};  // turn to be parallel with ML bar, extend wing
-  autonCommands[27] = {20, 0, 0, 0, 0, 0};   // clear corner orb
-  autonCommands[28] = {0, -45, 0, 0, 0, 0};  // turn to face net (this has us ram side of net with front of bot, may not have enough time to flip)
-  autonCommands[29] = {45, 0, 0, 0, 0, 0};   // ram bowled ball, preload and corner ball into net
-  autonCommands[30] = {0, 0, 0, 0, 0, 0};    // needs to navigate back to bar for AWP but im eepy
+// Defensive routes
 
-  totalNumOfCommands = 31;
-  autonCommands->resize(totalNumOfCommands);
+
+int safeDefenceRoute(autonCommand currCommandList[]) {
+  // dist /rotation: in cm / degrees (relative to current position)
+  // wings : 0 = niether, 1 = both, 2 = left, 3 = right, relative to intake as back
+  // intake / kickers: in % speed, delay is in seconds
+  // arm position: higher number = more up
+
+  const int totalNumOfCommands = 18;
+
+  currCommandList[1].lateralDist = 78;  // move fwd along ML bar
+
+  currCommandList[2].rotationalDist = 45;  // turn to face net
+
+  currCommandList[3].lateralDist = 8;     // drive up to net
+  currCommandList[3].intakeSpeed = -100;  // outtake
+
+  currCommandList[4].lateralDist = -14;  // move bwd towards ML bar
+
+  currCommandList[5].rotationalDist = -45;  // turn to be parallel with ML bar
+  currCommandList[5].wingPattern = 3;       // open right wing
+
+  currCommandList[6].lateralDist = -43;  // move bwd along ML bar, clearing corner orb
+  currCommandList[6].wingPattern = 3;    // keep right wing open
+
+  currCommandList[7].rotationalDist = -45;  // turn to !face gutter, pushing orb (close wing)
+
+  currCommandList[8].rotationalDist = 114;  // turn to face lower middle orb
+
+  currCommandList[9].lateralDist = 124;  // move almost to lower middle orb
+
+  currCommandList[10].lateralDist = 5;    // move fwd slightly
+  currCommandList[10].intakeSpeed = 100;  // intake orb
+
+  currCommandList[11].rotationalDist = -114;  // turn to !face middle barrier
+
+  currCommandList[12].lateralDist = -48;  // move bwd to push orb over middle
+  currCommandList[12].wingPattern = 2;    // extend left wing
+
+  currCommandList[13].lateralDist = 18;  // move fwd to be centered on small gutter barrier
+
+  currCommandList[14].rotationalDist = -90;  // turn to face small gutter barrier
+
+  currCommandList[15].lateralDist = 135;  // move into gutter over bar
+
+  currCommandList[16].rotationalDist = -90;  // turn to face middle barrier
+
+  currCommandList[17].lateralDist = 20;    // move fwd to push orbs over
+  currCommandList[17].intakeSpeed = -100;  // outtake
+
+  currCommandList[18].totalStepDelay = 5;  // delay
+
+  return totalNumOfCommands;
 }
 
-static void defenceAuton() {  // starting on the team side of the field (match loading)
-  // autonCommands[ autonStep ] = { latDist(cm), rotDist(degrees), armPos(1-5, 0 = no change), flywheelSpeed(%), wings[vvv], delay(sec) }
-  // wings: 0 = none, 1 = both, 2 = right, 3 = left
+int rushDefenceRoute(autonCommand currCommandList[]) {
+  // dist /rotation: in cm / degrees (relative to current position)
+  // wings : 0 = niether, 1 = both, 2 = left, 3 = right, relative to intake as back
+  // intake / kickers: in % speed, delay is in seconds
+  // arm position: higher number = more up
 
-  // 4 ball over, preload under defense auton
-  autonCommands[0] = {0, 0, 0, 0, 0, 0};      // [null padding, DO NOT REMOVE] start parallel to match loading bar, front facing wall (skills setup)
-  autonCommands[1] = {-55, 0, 2, 0, 0, 0};    // back along the match loading bar
-  autonCommands[2] = {-10, 45, 0, 0, 0, 0};   // turn so back faces net
-  autonCommands[3] = {-20, 0, 0, 0, 0, 0};    // ram preload under net
-  autonCommands[4] = {20, 0, 0, 0, 0, 0};     // drive back to ML bar
-  autonCommands[5] = {10, -45, 0, 0, 2, 0};   // reallign with ML bar, open right wing
-  autonCommands[6] = {45, 0, 0, 0, 2, 0};     // clear corner triball
-  autonCommands[7] = {0, -45, 0, 0, 2, 0};    // turn to face gutter
-  autonCommands[8] = {0, -21.8, 0, 0, 0, 0};  // close wing, turn to face lower middle triball (using trig!)
-  autonCommands[9] = {110, 0, 0, 0, 0, 0};    // drive almost up to middle triball
-  autonCommands[10] = {5, 0, 3, 0, 0, 0};     // drive to touch orb, raise arm
-  autonCommands[11] = {5, 0, 2, 0, 0, 0};     // drive forward, capture orb
-  autonCommands[12] = {0, 21.8, 0, 0, 3, 0};  // turn to face middle bar, extend left wing
-  autonCommands[13] = {55, 0, 0, -70, 3, 0};  // push orbs over middle
-  autonCommands[14] = {-90, 0, 0, 0, 0, 0};   // move back towards net
-  autonCommands[15] = {0, 90, 0, 0, 0, 0};    // turn towards gutter
-  autonCommands[16] = {150, 0, 0, 0, 0, 0};   // drive to mouth of gutter
-  autonCommands[17] = {0, 90, 0, 0, 0, 0};    // turn to face gutter with back
-  autonCommands[18] = {-105, 0, 3, 0, 0, 0};  // drive to push over corner orb / gutter orb, touch bar
+  const int totalNumOfCommands = 18;
 
-  totalNumOfCommands = 19;
-  autonCommands->resize(totalNumOfCommands);
+
+  return totalNumOfCommands;
 }
 
-static void testAuton() {
-  // autonCommands[ autonStep ] = {[]}
-  //[lateralDistance(cm), rotationalDistance(degrees), flystickArmPos(1-5, 0 = no change), flywheelSpeed(%), wingsOut(bool), delay(seconds)]
+
+// Offensive routes
 
 
-  // simple test routine that drives in a square, raises and spins the flywheel for 5 seconds then lowers it and drives backwards
-  autonCommands[0] = {0, 0, 0, 0, 0, 0};    // null padded start
-  autonCommands[1] = {25, 0, 0, 0, 0, 0};   // fwd 25cm
-  autonCommands[2] = {0, 90, 0, 0, 0, 0};   // right 90deg
-  autonCommands[3] = {25, 0, 0, 20, 0, 1};  // fwd 25cm, 20% flywheel speed, pause 2 sec
-  autonCommands[4] = {0, 90, 0, 0, 0, 0};   // right 90deg
-  autonCommands[5] = {0, -90, 0, 0, 0, 0};  // fwd 25cm
-  autonCommands[6] = {0, 90, 0, 0, 0, 0};   // right 90deg
-  autonCommands[7] = {25, 0, 0, 0, 0, 0};   // fwd 25cm to starting pos
-  autonCommands[8] = {0, 0, 3, 0, 0, 5};    // raise arm, 50% flywheel speed, pause 5 sec
-  autonCommands[9] = {-15, 0, 1, 0, 0, 0};  // back 15cm, lower arm
+int safeOffenceRoute(autonCommand currCommandList[]) {
+  // dist /rotation: in cm / degrees (relative to current position)
+  // wings : 0 = niether, 1 = both, 2 = left, 3 = right, relative to intake as back
+  // intake / kickers: in % speed, delay is in seconds
+  // arm position: higher number = more up
 
-  totalNumOfCommands = 10;
-  autonCommands->resize(totalNumOfCommands);
+  const int totalNumOfCommands = 20;
+}
+
+int rushOffenceRoute(autonCommand currCommandList[]) {
+  // dist /rotation: in cm / degrees (relative to current position)
+  // wings : 0 = niether, 1 = both, 2 = left, 3 = right, relative to intake as back
+  // intake / kickers: in % speed, delay is in seconds
+  // arm position: higher number = more up
+
+  const int totalNumOfCommands = 18;
+
+  const int totalNumOfCommands = 18;
+
+  currCommandList[1].intakeSpeed = -100;  // outtake preload
+
+  currCommandList[2].rotationalDist = -62.8;  // turn to face lower middle orb
+
+  currCommandList[3].lateralDist = 134.5;  // move up to orb
+  currCommandList[3].intakeSpeed = 100;    // intake
+
+  currCommandList[4].rotationalDist = 107.8;  // turn to face net
+
+  currCommandList[5].intakeSpeed = -100;  // outtake orb
+
+  currCommandList[6].rotationalDist = -167.5;  // turn to face upper middle orb
+
+  currCommandList[7].lateralDist = 40.5;  // move up to orb
+  currCommandList[7].intakeSpeed = 100;   // intake
+
+  currCommandList[8].rotationalDist = 167.5;  // turn to face net
+
+  currCommandList[9].lateralDist = 75;  // move towards net
+
+  currCommandList[10].lateralDist = 10;    // move to touch net
+  currCommandList[10].intakeSpeed = -100;  // outtake
+
+  currCommandList[11].lateralDist = -10;  // back up
+
+  currCommandList[11].rotationalDist = 148.2;  // turn to face corner orb
+
+  currCommandList[12].lateralDist = 96;   // move up to orb
+  currCommandList[12].intakeSpeed = 100;  // intake
+
+  currCommandList[13].rotationalDist = -101.9;  // turn to face original position
+
+  currCommandList[14].lateralDist = 126;  // move almost up to ML bar
+
+  currCommandList[15].rotationalDist = -90;  // turn to face net
+  currCommandList[16].intakeSpeed = -100;    // outtake orb
+
+  currCommandList[17].rotationalDist = -180;  // turn to !face along ML bar
+
+  currCommandList[18].lateralDist = -41;  // move along ML bar
+  currCommandList[18].wingPattern = 3;    // extend right wing
+
+  currCommandList[19].rotationalDist = -32;  // turn to directly !face net
+  currCommandList[19].wingPattern = 3;       // keep right wing extended
+
+  currCommandList[20].lateralDist = -45;  // push orbs under net
+  currCommandList[20].wingPattern = 2;    // extend left wing
+
+  return totalNumOfCommands;
+}
+
+
+// Skills routes
+
+
+int fullSkillsRoute(autonCommand currCommandList[]) {
+  // dist /rotation: in cm / degrees (relative to current position)
+  // wings : 0 = niether, 1 = both, 2 = left, 3 = right, relative to intake as back
+  // intake / kickers: in % speed, delay is in seconds
+  // arm position: higher number = more up
+
+  const int totalNumOfCommands = 18;
+}
+
+int driverSkillsRoutes(autonCommand currCommandList[]) {
+  // dist /rotation: in cm / degrees (relative to current position)
+  // wings : 0 = niether, 1 = both, 2 = left, 3 = right, relative to intake as back
+  // intake / kickers: in % speed, delay is in seconds
+  // arm position: higher number = more up
+
+  const int totalNumOfCommands = 18;
 }
 
 #pragma endregion
 
 // PID tunings
-static void setPIDTunings(int range) {
+void SetPIDTunings(int range) {
   switch (range) {
-    case 0:
+    case 0:  // close  ( < 20cm / > 22.5deg)
       lP = 0.65;
       lD = 0.25;
       lI = 0.35;
-      lOutput = 1.9;
+      lO = 1.9;
+
+      integralBoundL = 3;
 
       rP = 0.80;
       rD = 0.55;
       rI = 1.70;
-      rOutput = 2.0;
+      rO = 2.0;
+
+      integralBoundR = 0.75;
       break;
-    case 1:
+    case 1:  // medium (20cm < 60cm / 22.5deg < 90deg)
+
+    case 2:  // long ( > 60cm / > 90deg)
       lP = 0.70;
       lD = 0.30;
       lI = 0.45;
-      lOutput = 1.0;
+      lO = 1.0;
+
+      integralBoundL = 8;
 
       rP = 1.25;
       rD = 0.40;
       rI = 0.30;
-      rOutput = 2.9;
+      rO = 2.9;
+
+      integralBoundR = 4;
   }
 }
+
 
 #pragma region printingConfigs
 
@@ -237,4 +299,4 @@ void userControlPrinting() {
   isPrintingList[8] = false;  // PID Tuning - disabled
 }
 
-#pragma endregion  // printingConfigs
+#pragma endregion
