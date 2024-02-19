@@ -1,7 +1,46 @@
-#include "custPrinting.h"
-#include "main.h"
-#include "robot-config.h"
+#include "generalFuncs.h"
 
+// stores the helper functions used accross all levels of the program, very low-level
+
+#pragma region HelperFunctions
+
+const char *toChar(std::string string) { return string.c_str(); }
+
+int toInt(float val) { return val; }
+
+int timeSincePoint(int checkedTime) {
+  return checkedTime < globalTimer ? (globalTimer - checkedTime) : -1;  // returns -1 if checkedtime is in the future
+}
+
+template <typename T>
+const float GreaterOf(T num1, T num2) {
+  return (num1 > num2) ? num1 : num2;
+}
+
+const bool IsWithinRange(float num, float lowerBound, float upperBound) { return num >= lowerBound && num <= upperBound; }
+
+
+bool LDrive(float desPowerPercent) {
+  LDrive600.move_velocity(desPowerPercent * 6);
+  LDriveBackM.move_velocity(desPowerPercent * 2);
+
+  // return true if motors are hitting desired speeds within 0.5%
+  return IsWithinRange((LDriveFrontM.get_actual_velocity() - (6 * desPowerPercent)), -3, 3) ? true : false;
+}
+
+bool RDrive(float desPowerPercent) {
+  RDrive600.move_velocity(desPowerPercent * 6);
+  RDriveBackM.move_velocity(desPowerPercent * 2);
+
+  // return true if motors are hitting desired speeds within 0.5%
+  return IsWithinRange((RDriveFrontM.get_actual_velocity() - (6 * desPowerPercent)), -3, 3) ? true : false;
+}
+
+#pragma endregion
+
+
+
+#pragma region Printing
 
 void lcdControl() {
   if (globalTimer % 11 == 0) {  // refresh the screen every 11 ticks because 11 is a good number :)
@@ -43,6 +82,5 @@ void PrintToController(std::string prefix, const std::array<T, N> &data, int num
     MainControl.print(row, 0, output.c_str(), 0);
   }
 }
-
 
 #pragma endregion

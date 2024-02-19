@@ -1,5 +1,6 @@
 #include "userControl.h"
 
+// This file handles the user's inputs on the program, from driving to tuning to control of other mechanisms
 
 #pragma region Variables
 
@@ -15,6 +16,8 @@ float SCurveExtremity = 5.3;  // h on graph
 
 
 #pragma endregion
+
+
 
 #pragma region HelperFunctions
 
@@ -37,6 +40,7 @@ float StickSmoothingFunc(float stickVal) {
 }  // function graphed here: [https://www.desmos.com/calculator/ti4hn57sa7]
 
 #pragma endregion
+
 
 
 #pragma region MainFunctions
@@ -147,6 +151,9 @@ void DrivingControl(bool isPrinting) {  // resoponsible for user control of the 
   }
 }  // graphed and simulated at [https://www.desmos.com/calculator/4dse2rfj], modelled in % power output by default. Graph may be outdated
 
+#pragma endregion
+
+
 
 #pragma region AuxiliaryFunctions
 
@@ -177,6 +184,58 @@ void WingsControl() {  // controls... wings
   if (MainControl.get_digital_new_press(DIGITAL_B)) {
     RWingLockedOut = !RWingLockedOut;
     WingPR.set_value(RWingLockedOut);
+  }
+}
+
+#pragma endregion
+
+
+
+#pragma region Tuning
+
+void tuneDrive(bool isPrinting) {  // allows for user driving, with real time control over drive coefficients
+  // default settings for acceleratory / stick curves
+
+  isPrintingList[7] = true;  // Drive Tuning - disabled
+
+  ACurveExtremity = 0.19948;  // sigma
+  AMinAmount = 0.235;         // kappa
+
+  linearHarshness = 0.2;  // g on graph
+  SCurveExtremity = 4.7;  // h on graph
+
+  float adjustFactor = 1;
+
+  while (true) {
+    lcdControl();
+
+    if (MainControl.get_digital_new_press(DIGITAL_X)) { ACurveExtremity += adjustFactor / 100000; }
+    if (MainControl.get_digital_new_press(DIGITAL_A)) { AMinAmount += adjustFactor / 1000; }
+    if (MainControl.get_digital_new_press(DIGITAL_B)) { linearHarshness += adjustFactor / 20; }
+    if (MainControl.get_digital_new_press(DIGITAL_Y)) { SCurveExtremity += adjustFactor / 10; }
+
+    if (MainControl.get_digital_new_press(DIGITAL_UP)) { adjustFactor++; }
+    if (MainControl.get_digital_new_press(DIGITAL_DOWN)) { adjustFactor--; }
+    if (MainControl.get_digital_new_press(DIGITAL_L1)) { adjustFactor *= -1; }
+
+    DrivingControl(true);
+
+
+    if (isPrinting) {  // [7] Drive Tune - 1
+      if (!isPrintingList[7]) { isPrintingList[7] = true; }
+
+      int startPage = pageRangeFinder(7);
+
+      PrintToController("kappa: ", ACurveExtremity, 7, 0, startPage);
+      PrintToController("sigma: ", AMinAmount, 5, 1, startPage);
+
+      std::array<float, 2> HAndG = {linearHarshness, SCurveExtremity};
+      PrintToController("g and h: ", HAndG, 3, 2, startPage);
+    }
+
+
+    globalTimer++;
+    delay(tickDeltaTime);
   }
 }
 

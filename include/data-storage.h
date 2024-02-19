@@ -1,12 +1,3 @@
-#include <math.h>    //neccessary for functions like abs() and round()
-#include <stdlib.h>  //neccessary for std::[commands]
-
-#include <cmath>
-#include <cstring>
-#include <sstream>  //neccessary for... logic
-#include <string>   //neccessary for... using strings :sob:
-
-#include "custPrinting.h"
 #include "main.h"
 
 

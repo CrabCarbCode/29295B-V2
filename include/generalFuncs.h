@@ -1,4 +1,26 @@
 #include "main.h"
+#include "robot-config.h"
+
+
+#pragma region HelperFunctions
+
+const char *toChar(std::string string);
+
+int toInt(float val);
+
+int timeSincePoint(int checkedTime);
+
+template <typename T>
+const float GreaterOf(T num1, T num2);
+
+const bool IsWithinRange(float num, float lowerBound, float upperBound);
+
+bool LDrive(float desPowerPercent);
+bool RDrive(float desPowerPercent);
+
+#pragma endregion
+
+#pragma region Printing
 
 int currentPage = 1;
 int globalTimer = 0;
@@ -18,7 +40,6 @@ const int pagesPerPrint[9] = {1, 1, 3, 2, 2, 1, 2, 2, 2};  // hardcoded list con
  * [8] PID Tune - 2
  **/
 
-
 void lcdControl();
 
 int pageRangeFinder(int index);
@@ -27,3 +48,5 @@ void PrintToController(std::string prefix, double data, int numOfDigits, int row
 
 template <typename T, size_t N>
 void PrintToController(std::string prefix, const std::array<T, N> &data, int numOfDigits, int row, int page);
+
+#pragma endregion
