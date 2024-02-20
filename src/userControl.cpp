@@ -45,17 +45,9 @@ float StickSmoothingFunc(float stickVal) {
 
 #pragma region MainFunctions
 
-void DrivingControl(bool isPrinting) {  // resoponsible for user control of the drivetrainint gift
+void DrivingControl(bool isPrinting) {  // responsible for user control of the drivetrainint gift
 
-  switch (MainControl.get_digital_new_press(DIGITAL_L2) - MainControl.get_digital_new_press(DIGITAL_R2)) {
-    case -1:
-      reverseDriveMult = -1;
-    case 0:
-      break;
-    case 1:
-      reverseDriveMult = 1;
-      break;
-  }
+  if (MainControl.get_digital_new_press(DIGITAL_A)) { reverseDriveMult = (reverseDriveMult == 1) ? -1 : 1; }
 
   // taking the position of the sticks and appplying gradient diffusion to them. Check the StickSmoothingFunc graph for details
   // X stick covers fwd/back, Y stick covers turning
@@ -135,6 +127,8 @@ void DrivingControl(bool isPrinting) {  // resoponsible for user control of the 
     LAccelTime -= (LAccelTime > 0) ? ptsPerTick : -ptsPerTick;
     RAccelTime -= (RAccelTime > 0) ? ptsPerTick : -ptsPerTick;
 
+    // its unfortunate that I have to write the printing setup twice, but this way we avoid calculations when not driving
+
     if (isPrinting) {  // [4] Drivetrain - 2
       if (!isPrintingList[4]) { isPrintingList[4] = true; }
 
@@ -160,13 +154,23 @@ void DrivingControl(bool isPrinting) {  // resoponsible for user control of the 
 // handles user control of intake
 void RCIntakeControls() { IntakeM.move_velocity(maxIntakeSpeed * 6 * (MainControl.get_digital(DIGITAL_L1) - MainControl.get_digital(DIGITAL_R1))); }
 
+void KickerControl() {
+  bool kickerButton = (SideControl.is_connected()) ? SideControl.get_digital(DIGITAL_A) : MainControl.get_digital(DIGITAL_A);
+  KickerM.move_velocity(maxKickerSpeed * kickerButton);  // if not pressed, 0 * x, if pressed, 1 * x
+}
+
 void ControlArm() {
-  if (MainControl.get_digital_new_press(DIGITAL_UP) && armLevel < maxArmLevel) {
-    LiftM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+  // not a fan of this solution for switching which controller is in charge of the arm, but I can't think of a generalized one right now
+
+  bool UpButton = (SideControl.is_connected()) ? SideControl.get_digital_new_press(DIGITAL_UP) : MainControl.get_digital_new_press(DIGITAL_UP);
+  bool DownButton = (SideControl.is_connected()) ? SideControl.get_digital_new_press(DIGITAL_DOWN) : MainControl.get_digital_new_press(DIGITAL_DOWN);
+
+  if (UpButton && armLevel < maxArmLevel) {
+    LiftM.set_brake_mode(E_MOTOR_BRAKE_COAST);
     armLevel++;
   }
-  if (MainControl.get_digital_new_press(DIGITAL_DOWN) && armLevel > 1) {
-    LiftM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+  if (DownButton && armLevel > 1) {
+    LiftM.set_brake_mode(E_MOTOR_BRAKE_COAST);
     armLevel--;
   }
 }

@@ -193,6 +193,124 @@ int fullSkillsRoute(autonCommand currCommandList[]) {
   // arm position: higher number = more up
 
   const int totalNumOfCommands = 18;
+
+  currCommandList[1].lateralDist = -55;
+
+  currCommandList[2].rotationalDist = 45;
+
+  currCommandList[3].lateralDist = -30;
+
+  currCommandList[4].lateralDist = 37;
+
+  currCommandList[5].lateralDist = 5;
+  currCommandList[5].rotationalDist = 90;
+
+  currCommandList[6].lateralDist = -12;
+  currCommandList[6].rotationalDist = -14;
+  currCommandList[6].armPosition = 3;
+
+  currCommandList[7].kickerSpeed = 90;
+  currCommandList[7].totalStepDelay = 30;
+
+  currCommandList[8].lateralDist = 14;
+  currCommandList[8].armPosition = 1;
+
+  currCommandList[9].rotationalDist = -130;
+
+  currCommandList[10].lateralDist = 78;
+
+  currCommandList[11].lateralDist = 16;
+  currCommandList[11].rotationalDist = -38;
+
+  currCommandList[12].lateralDist = 105;
+
+  currCommandList[13].lateralDist = 61;
+
+  currCommandList[14].rotationalDist = -45;
+  currCommandList[14].wingPattern = 2;
+
+  currCommandList[15].lateralDist = 69;
+  currCommandList[15].wingPattern = 2;
+
+  currCommandList[16].lateralDist = 10;
+  currCommandList[16].rotationalDist = -45;
+
+  currCommandList[17].lateralDist = 20;
+
+  currCommandList[18].lateralDist = -30;
+
+  currCommandList[19].lateralDist = 30;
+
+  currCommandList[20].lateralDist = -26;
+
+  currCommandList[21].rotationalDist = 94;
+
+  currCommandList[22].lateralDist = -110;
+
+  currCommandList[23].rotationalDist = -46;
+
+  currCommandList[23].wingPattern = 1;
+
+  currCommandList[24].lateralDist = 85;
+  currCommandList[24].wingPattern = 1;
+
+  currCommandList[25].lateralDist = -30;
+  currCommandList[25].wingPattern = 2;
+
+  currCommandList[26].lateralDist = 30;
+  currCommandList[26].wingPattern = 1;
+
+  currCommandList[27].lateralDist = -75;
+
+  currCommandList[28].rotationalDist = -45;
+
+  currCommandList[29].lateralDist = 50;
+  currCommandList[29].wingPattern = 3;
+
+  currCommandList[30].rotationalDist = 45;
+  currCommandList[30].wingPattern = 3;
+
+  currCommandList[31].lateralDist = 85;
+  currCommandList[31].wingPattern = 1;
+
+  currCommandList[32].lateralDist = -30;
+  currCommandList[32].wingPattern = 2;
+
+  currCommandList[33].lateralDist = 30;
+  currCommandList[33].wingPattern = 1;
+
+  currCommandList[34].lateralDist = -65;
+
+  currCommandList[35].rotationalDist = -115;
+
+  currCommandList[36].lateralDist = 45;
+
+  currCommandList[37].rotationalDist = -50;
+
+  currCommandList[38].lateralDist = -45;
+  currCommandList[38].wingPattern = 1;
+
+  currCommandList[39].rotationalDist = -45;
+
+  currCommandList[40].lateralDist = 110;
+
+  currCommandList[41].rotationalDist = -90;
+
+  currCommandList[42].lateralDist = 110;
+
+  currCommandList[43].rotationalDist = -90;
+
+  currCommandList[44].lateralDist = 100;
+
+  currCommandList[45].rotationalDist = -90;
+
+  currCommandList[46].lateralDist = 30;
+
+  currCommandList[47].lateralDist = -30;
+
+  currCommandList[48].lateralDist = 30;
+
+  currCommandList[49].lateralDist = -60;
 }
 
 int driverSkillsRoutes(autonCommand currCommandList[]) {

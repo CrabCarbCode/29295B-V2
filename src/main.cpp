@@ -129,6 +129,17 @@ void updateGlobalPosition(bool isPrinting) {
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
+#pragma region ControllerManagement
+
+
+
+#pragma endregion
+
+
+// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
+
+
 #pragma region Pregame //code which executes before a game starts
 
 void initialize() {

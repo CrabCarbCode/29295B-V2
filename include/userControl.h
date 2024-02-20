@@ -42,6 +42,8 @@ void DrivingControl(bool isPrinting);
 // handles user control input on intake / arm
 void RCIntakeControls();
 
+void KickerControl();
+
 void ControlArm();
 
 bool RWingLockedOut = false;
