@@ -50,13 +50,6 @@
 #include <sstream>  //neccessary for... logic
 #include <string>   //neccessary for... using strings :sob:
 
-#include "autonControl.h"
-#include "data-storage.h"
-#include "debugging.h"
-#include "generalFuncs.h"
-#include "robot-config.h"  //importing the motors and whatnot
-#include "userControl.h"
-
 
 /**
  * If you find doing pros::Motor() to be tedious and you'd prefer just to do

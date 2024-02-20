@@ -1,4 +1,4 @@
-#include "main.h"
+#include "api.h"  //importing the motors and whatnot
 
 
 
@@ -78,14 +78,16 @@ struct autonCommand {
 
 // Printing
 
-int currentPage = 1;
-autonCommand autonCommands[];
+
+autonCommand autonCommands[80];
 
 // Timer
 
-const int ticksPerSec = 50;  // the number of 'ticks' in one second
-const int tickDeltaTime = 1000 / ticksPerSec;
-const int minPrintingDelay = (ticksPerSec / tickDeltaTime) + 0.5;  // ticksPerSec / tickDeltaTime
+int ticksPerSec = 50;  // the number of 'ticks' in one second
+int tickDeltaTime = 1000 / ticksPerSec;
+int minPrintingDelay = (ticksPerSec / tickDeltaTime) + 0.5;  // ticksPerSec / tickDeltaTime
+
+const int stepChangeCooldown = ticksPerSec / 4;  // sets the minimum delay between auton steps
 
 // General Global Stuff
 
@@ -104,6 +106,7 @@ int armLevel = 1;
 const int maxArmLevel = 2;
 
 int currentPage = 1;
+int globalTimer = 0;
 
 const float degPerCM = (360 / (4.1875 * Pi * 2.54)) * (84.0f / 36.0);  // # of degrees per centimeter = 360 / (2Pir" * 2.54cm/") * gear ratio
 

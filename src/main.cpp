@@ -1,5 +1,11 @@
 #include "main.h"
 
+#include "autonControl.h"
+#include "data-storage.h"
+#include "generalFuncs.h"
+#include "robot-config.h"  //importing the motors and whatnot
+#include "userControl.h"
+
 // This is my code, and thus it is my god given right to use it as a diary. ignore the strange comments
 
 
@@ -219,7 +225,9 @@ void autonomous() {
 
       FullDrive.move_velocity(0);
 
-      if (globalTimer % 11) { MainControl.clear(); }
+      if (globalTimer % 11) {
+        MainControl.clear();
+      }
 
       PrintToController("Out of bounds", 0, 0, 1, 1);
 
@@ -296,9 +304,9 @@ void autonomous() {
 void opcontrol() {
 #pragma region Debugging
 
-  tunePID(true);
+  // tunePID(true);
 
-  // competition_initialize();
+  competition_initialize();
   // autonomous();
 
   // tuneDrive(true);
@@ -312,13 +320,17 @@ void opcontrol() {
     DrivingControl(true);
     WingsControl();
     RCIntakeControls();
-    ControlArm();
-    ManageArm(true);
+    // ControlArm();
+    // ManageArm(true);
 
     if (MainControl.get_digital(DIGITAL_A)) {
       KickerM.move_velocity(2 * maxKickerSpeed);
     } else {
       KickerM.move_velocity(0);
+    }
+
+    // switch activate second radio if controller gets disconnected
+    if (!MainControl.is_connected()) {
     }
 
     lcdControl();

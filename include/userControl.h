@@ -1,6 +1,5 @@
 #include "main.h"
 
-
 int RAccelTime = 0;
 int LAccelTime = 0;
 
@@ -13,17 +12,13 @@ int activeBrakeTimeStamp = 0;
 int reverseDriveMult = 1;
 
 // variables which control the shape/range of the acceleratory curve
-float ACurveExtremity;  // sigma
-float peakPos;          // mu
-float AMinAmount;       // kappa
+float ACurveExtremity = 0.1996;  // sigma
+float peakPos = 1;               // mu
+float AMinAmount = 0.24;         // kappa
 
 // variables which control the shape of the stick curve
-float linearHarshness;  // g on graph
-float SCurveExtremity;  // h on graph
-
-// variables to track the state of the tuning routine
-float adjustFactor = 0.05;  // the increment by which PID variables change during manual tuning
-bool isTuningTurns = true;
+float linearHarshness = 0.6;  // g on graph
+float SCurveExtremity = 5.3;  // h on graph
 
 
 

@@ -1,4 +1,6 @@
-#include "main.h"
+#include "api.h"
+
+using namespace pros;
 
 /*
  * note on name conventions, every variable is camelcase
@@ -8,17 +10,20 @@
 pros::Controller MainControl(E_CONTROLLER_MASTER);  // declared with "pros::" to avoid ambiguity with stock vex controller
 pros::Controller SideControl(E_CONTROLLER_PARTNER);
 
+Link PrimaryRadio(21, "S(1)Car", E_LINK_TRANSMITTER);
+Link SecondaryRadio(5, "S(2)Car", E_LINK_TRANSMITTER);
+
 Motor LDriveFrontM(12, E_MOTOR_GEARSET_06, true, E_MOTOR_ENCODER_DEGREES);
-Motor LDriveMidM(6, E_MOTOR_GEARSET_06, true, E_MOTOR_ENCODER_DEGREES);
-Motor LDriveBackM(8, E_MOTOR_GEARSET_18, false, E_MOTOR_ENCODER_DEGREES);  // 5.5w
+Motor LDriveMidM(14, E_MOTOR_GEARSET_06, true, E_MOTOR_ENCODER_DEGREES);
+Motor LDriveBackM(13, E_MOTOR_GEARSET_18, false, E_MOTOR_ENCODER_DEGREES);  // 5.5w
 
 Motor RDriveFrontM(20, E_MOTOR_GEARSET_06, false, E_MOTOR_ENCODER_DEGREES);
-Motor RDriveMidM(19, E_MOTOR_GEARSET_06, false, E_MOTOR_ENCODER_DEGREES);
-Motor RDriveBackM(16, E_MOTOR_GEARSET_18, true, E_MOTOR_ENCODER_DEGREES);  // 5.5w
+Motor RDriveMidM(18, E_MOTOR_GEARSET_06, false, E_MOTOR_ENCODER_DEGREES);
+Motor RDriveBackM(19, E_MOTOR_GEARSET_18, true, E_MOTOR_ENCODER_DEGREES);  // 5.5w
 
 Motor LiftM(1, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
 
-Motor IntakeM(10, E_MOTOR_GEARSET_18, true, E_MOTOR_ENCODER_DEGREES);
+Motor IntakeM(9, E_MOTOR_GEARSET_06, true, E_MOTOR_ENCODER_DEGREES);
 Motor KickerM(3, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
 
 ADIDigitalOut WingPR('G');

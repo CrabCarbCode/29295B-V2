@@ -1,5 +1,10 @@
 #include "autonControl.h"
 
+#include "data-storage.h"
+#include "generalFuncs.h"
+#include "robot-config.h"  //importing the motors and whatnot
+#include "userControl.h"
+
 // handles autonomous executions (no user input), quite high-level
 
 #pragma region HelperFunctions
@@ -9,9 +14,6 @@
 
 
 #pragma region MainFunctions
-
-int stuckTimeStamp = 0;
-int avgMotorPosition = 0;
 
 bool AutonPID(bool isPrinting) {
   if (autonPIDIsEnabled) {  // toggle so the PID can be disabled while placed on a separate thread
@@ -157,9 +159,6 @@ bool ManageArm(bool isPrinting) {
 //      generally the P & D components should be larger than the I, and values should be between 0.0 and 5.0.          //
 ////                                                                                                                 ////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-float adjustFactor = 0.05;  // the increment by which PID variables change during manual tuning
-bool isTuningTurns = true;
 
 void tunePID(bool isPrinting) {  // turns or oscilates repeatedly to test and tune the PID, allowing real-time tuning and adjustments
 

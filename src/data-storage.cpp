@@ -1,4 +1,9 @@
+#include "generalFuncs.h"
+
+#include "autonControl.h"
 #include "data-storage.h"
+#include "robot-config.h"  //importing the motors and whatnot
+#include "userControl.h"
 
 #pragma region autonRoutes
 
@@ -8,7 +13,7 @@ int debugRoute(autonCommand currCommandList[]) {
   // intake / kickers: in % speed, delay is in seconds
   // arm position: higher number = more up
 
-  const int totalNumOfCommands = 8;
+  const int numOfCommands = 8;
 
   currCommandList[1].lateralDist = 25;  // drives fwd 25 cm
 
@@ -36,7 +41,7 @@ int debugRoute(autonCommand currCommandList[]) {
 
   currCommandList[9].rotationalDist = 720;  // try to go out of bounds, spin a lot
 
-  return totalNumOfCommands;
+  return numOfCommands;
 }
 
 
@@ -49,7 +54,7 @@ int safeDefenceRoute(autonCommand currCommandList[]) {
   // intake / kickers: in % speed, delay is in seconds
   // arm position: higher number = more up
 
-  const int totalNumOfCommands = 18;
+  const int numOfCommands = 18;
 
   currCommandList[1].lateralDist = 78;  // move fwd along ML bar
 
@@ -93,7 +98,7 @@ int safeDefenceRoute(autonCommand currCommandList[]) {
 
   currCommandList[18].totalStepDelay = 5;  // delay
 
-  return totalNumOfCommands;
+  return numOfCommands;
 }
 
 int rushDefenceRoute(autonCommand currCommandList[]) {
@@ -102,10 +107,10 @@ int rushDefenceRoute(autonCommand currCommandList[]) {
   // intake / kickers: in % speed, delay is in seconds
   // arm position: higher number = more up
 
-  const int totalNumOfCommands = 18;
+  const int numOfCommands = 18;
 
 
-  return totalNumOfCommands;
+  return numOfCommands;
 }
 
 
@@ -118,7 +123,9 @@ int safeOffenceRoute(autonCommand currCommandList[]) {
   // intake / kickers: in % speed, delay is in seconds
   // arm position: higher number = more up
 
-  const int totalNumOfCommands = 20;
+  const int numOfCommands = 20;
+
+  return numOfCommands;
 }
 
 int rushOffenceRoute(autonCommand currCommandList[]) {
@@ -127,9 +134,7 @@ int rushOffenceRoute(autonCommand currCommandList[]) {
   // intake / kickers: in % speed, delay is in seconds
   // arm position: higher number = more up
 
-  const int totalNumOfCommands = 18;
-
-  const int totalNumOfCommands = 18;
+  const int numOfCommands = 18;
 
   currCommandList[1].intakeSpeed = -100;  // outtake preload
 
@@ -179,7 +184,7 @@ int rushOffenceRoute(autonCommand currCommandList[]) {
   currCommandList[20].lateralDist = -45;  // push orbs under net
   currCommandList[20].wingPattern = 2;    // extend left wing
 
-  return totalNumOfCommands;
+  return numOfCommands;
 }
 
 
@@ -192,7 +197,7 @@ int fullSkillsRoute(autonCommand currCommandList[]) {
   // intake / kickers: in % speed, delay is in seconds
   // arm position: higher number = more up
 
-  const int totalNumOfCommands = 18;
+  const int numOfCommands = 18;
 
   currCommandList[1].lateralDist = -55;
 
@@ -311,6 +316,8 @@ int fullSkillsRoute(autonCommand currCommandList[]) {
   currCommandList[48].lateralDist = 30;
 
   currCommandList[49].lateralDist = -60;
+
+  return numOfCommands;
 }
 
 int driverSkillsRoutes(autonCommand currCommandList[]) {
@@ -319,7 +326,9 @@ int driverSkillsRoutes(autonCommand currCommandList[]) {
   // intake / kickers: in % speed, delay is in seconds
   // arm position: higher number = more up
 
-  const int totalNumOfCommands = 18;
+  const int numOfCommands = 18;
+
+  return numOfCommands;
 }
 
 #pragma endregion

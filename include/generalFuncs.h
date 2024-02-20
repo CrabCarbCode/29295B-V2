@@ -1,6 +1,4 @@
 #include "main.h"
-#include "robot-config.h"
-
 
 #pragma region HelperFunctions
 
@@ -21,9 +19,6 @@ bool RDrive(float desPowerPercent);
 #pragma endregion
 
 #pragma region Printing
-
-int currentPage = 1;
-int globalTimer = 0;
 
 bool isPrintingList[9] = {false, false, false, false, false, false, false, false, false};  // tracks which functions are trying to print
 const int pagesPerPrint[9] = {1, 1, 3, 2, 2, 1, 2, 2, 2};  // hardcoded list containing the number of pages required for each function

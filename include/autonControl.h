@@ -5,12 +5,8 @@
 int selectorStage = 0;
 int selectedRoute = 3;
 
-
-const int stepChangeCooldown = ticksPerSec / 4;  // sets the minimum delay between auton steps
-
 // initializing data variables (used to track details of each step)
 int autonStep = 0;  // tracks which step of the auton the program is on
-int flywheelSpeed = 0;
 int minStepChangeTimeStamp;
 
 
@@ -25,6 +21,9 @@ float prevErrorF = 0;
 
 int stuckTimeStamp = 0;
 int avgMotorPosition = 0;
+
+float adjustFactor = 0.05;  // the increment by which PID variables change during manual tuning
+bool isTuningTurns = true;
 
 bool AutonPID(bool isPrinting);
 

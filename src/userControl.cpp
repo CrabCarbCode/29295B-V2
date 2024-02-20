@@ -1,18 +1,13 @@
+#include "generalFuncs.h"
+
+#include "autonControl.h"
+#include "data-storage.h"
+#include "robot-config.h"  //importing the motors and whatnot
 #include "userControl.h"
 
 // This file handles the user's inputs on the program, from driving to tuning to control of other mechanisms
 
 #pragma region Variables
-
-
-// variables which control the shape/range of the acceleratory curve
-float ACurveExtremity = 0.1996;  // sigma
-float peakPos = 1;               // mu
-float AMinAmount = 0.24;         // kappa
-
-// variables which control the shape of the stick curve
-float linearHarshness = 0.6;  // g on graph
-float SCurveExtremity = 5.3;  // h on graph
 
 
 #pragma endregion
@@ -47,7 +42,9 @@ float StickSmoothingFunc(float stickVal) {
 
 void DrivingControl(bool isPrinting) {  // responsible for user control of the drivetrainint gift
 
-  if (MainControl.get_digital_new_press(DIGITAL_A)) { reverseDriveMult = (reverseDriveMult == 1) ? -1 : 1; }
+  if (MainControl.get_digital_new_press(DIGITAL_A)) {
+    reverseDriveMult = (reverseDriveMult == 1) ? -1 : 1;
+  }
 
   // taking the position of the sticks and appplying gradient diffusion to them. Check the StickSmoothingFunc graph for details
   // X stick covers fwd/back, Y stick covers turning
@@ -107,7 +104,9 @@ void DrivingControl(bool isPrinting) {  // responsible for user control of the d
     }
 
     if (isPrinting) {  // [4] Drivetrain - 2
-      if (!isPrintingList[4]) { isPrintingList[4] = true; }
+      if (!isPrintingList[4]) {
+        isPrintingList[4] = true;
+      }
 
       int startPage = pageRangeFinder(4);
 
@@ -131,7 +130,9 @@ void DrivingControl(bool isPrinting) {  // responsible for user control of the d
     // its unfortunate that I have to write the printing setup twice, but this way we avoid calculations when not driving
 
     if (isPrinting) {  // [4] Drivetrain - 2
-      if (!isPrintingList[4]) { isPrintingList[4] = true; }
+      if (!isPrintingList[4]) {
+        isPrintingList[4] = true;
+      }
 
       int startPage = pageRangeFinder(4);
 
@@ -153,7 +154,7 @@ void DrivingControl(bool isPrinting) {  // responsible for user control of the d
 #pragma region AuxiliaryFunctions
 
 // handles user control of intake
-void RCIntakeControls() { IntakeM.move_velocity(maxIntakeSpeed * 6 * (MainControl.get_digital(DIGITAL_L1) - MainControl.get_digital(DIGITAL_R1))); }
+void RCIntakeControls() { IntakeM.move_velocity(maxIntakeSpeed * 6 * (MainControl.get_digital(DIGITAL_R1) - MainControl.get_digital(DIGITAL_L1))); }
 
 void KickerControl() {
   bool kickerButton = (SideControl.is_connected()) ? SideControl.get_digital(DIGITAL_A) : MainControl.get_digital(DIGITAL_A);
@@ -175,9 +176,6 @@ void ControlArm() {
     armLevel--;
   }
 }
-
-bool RWingLockedOut = false;
-bool LWingLockedOut = false;
 
 void WingsControl() {  // controls... wings
 
@@ -209,25 +207,41 @@ void tuneDrive(bool isPrinting) {  // allows for user driving, with real time co
   linearHarshness = 0.2;  // g on graph
   SCurveExtremity = 4.7;  // h on graph
 
-  float adjustFactor = 1;
+  float changeAmount = 1;
 
   while (true) {
     lcdControl();
 
-    if (MainControl.get_digital_new_press(DIGITAL_X)) { ACurveExtremity += adjustFactor / 100000; }
-    if (MainControl.get_digital_new_press(DIGITAL_A)) { AMinAmount += adjustFactor / 1000; }
-    if (MainControl.get_digital_new_press(DIGITAL_B)) { linearHarshness += adjustFactor / 20; }
-    if (MainControl.get_digital_new_press(DIGITAL_Y)) { SCurveExtremity += adjustFactor / 10; }
+    if (MainControl.get_digital_new_press(DIGITAL_X)) {
+      ACurveExtremity += changeAmount / 100000;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_A)) {
+      AMinAmount += changeAmount / 1000;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_B)) {
+      linearHarshness += changeAmount / 20;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_Y)) {
+      SCurveExtremity += changeAmount / 10;
+    }
 
-    if (MainControl.get_digital_new_press(DIGITAL_UP)) { adjustFactor++; }
-    if (MainControl.get_digital_new_press(DIGITAL_DOWN)) { adjustFactor--; }
-    if (MainControl.get_digital_new_press(DIGITAL_L1)) { adjustFactor *= -1; }
+    if (MainControl.get_digital_new_press(DIGITAL_UP)) {
+      changeAmount++;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_DOWN)) {
+      changeAmount--;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_L1)) {
+      changeAmount *= -1;
+    }
 
     DrivingControl(true);
 
 
     if (isPrinting) {  // [7] Drive Tune - 1
-      if (!isPrintingList[7]) { isPrintingList[7] = true; }
+      if (!isPrintingList[7]) {
+        isPrintingList[7] = true;
+      }
 
       int startPage = pageRangeFinder(7);
 

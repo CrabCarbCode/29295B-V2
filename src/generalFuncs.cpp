@@ -1,5 +1,10 @@
 #include "generalFuncs.h"
 
+#include "autonControl.h"
+#include "data-storage.h"
+#include "robot-config.h"  //importing the motors and whatnot
+#include "userControl.h"
+
 // stores the helper functions used accross all levels of the program, very low-level
 
 #pragma region HelperFunctions
@@ -47,14 +52,20 @@ void lcdControl() {
     MainControl.clear();
   }
 
-  if (MainControl.get_digital_new_press(DIGITAL_LEFT) && currentPage > 0) { currentPage--; }
-  if (MainControl.get_digital_new_press(DIGITAL_RIGHT)) { currentPage++; }
+  if (MainControl.get_digital_new_press(DIGITAL_LEFT) && currentPage > 0) {
+    currentPage--;
+  }
+  if (MainControl.get_digital_new_press(DIGITAL_RIGHT)) {
+    currentPage++;
+  }
 }
 
 int pageRangeFinder(int index) {                 // calculates which page(s) a
   int startingPage = isPrintingList[0] ? 1 : 0;  // given function should print to
   // start on page 1
-  for (int j = 0; j < index; ++j) { startingPage += isPrintingList[j] ? pagesPerPrint[j] : 0; }
+  for (int j = 0; j < index; ++j) {
+    startingPage += isPrintingList[j] ? pagesPerPrint[j] : 0;
+  }
 
   return startingPage;
 }
