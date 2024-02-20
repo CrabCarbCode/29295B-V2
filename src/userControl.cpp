@@ -70,8 +70,9 @@ void DrivingControl(bool isPrinting) {  // responsible for user control of the d
 
     int lateralOutput = AccelSmoothingFunc(LAccelTime) * XStickPercent;
 
+    // lowers the rotational output based on the lateral output, to prevent turning from overpowering fwd motion at high speeds
     float rotationalMult = ((-0.001 * powf(lateralOutput, 2)) + (-0.25 * lateralOutput) + 80) / 100;
-    // graphed and explained here: [https://www.desmos.com/calculator/03mizqcj4f]
+    // graphed here: [https://www.desmos.com/calculator/03mizqcj4f]
 
     int rotationalOutput = (rotationalMult * AccelSmoothingFunc(RAccelTime) * YStickPercent);  // ((100 - abs(lateralOutput)) / 100)
 
