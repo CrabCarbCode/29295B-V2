@@ -1552,6 +1552,7 @@ void competition_initialize() {  // auton selector
 
 void autonomous() {
   autonPrinting();
+  selectedRoute = 7;
 
 
   autonCommand commandList[50];
@@ -1587,6 +1588,9 @@ void autonomous() {
       break;
     case 6:
       totalNumOfCommands += driverSkillsRoute(commandList);
+      break;
+    case 7:
+      totalNumOfCommands += debugRoute(commandList);
       break;
   }
 
