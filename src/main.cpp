@@ -685,8 +685,8 @@ void DrivingControl(bool isPrinting) {  // responsible for user control of the d
   // X stick covers fwd/back, Y stick covers turning
 
 
-  float XStickPercent = StickSmoothingFunc(MainControl.get_analog(E_CONTROLLER_ANALOG_LEFT_Y) / 1.27 * reverseDriveMult);  // w on graph
-  float YStickPercent = StickSmoothingFunc(MainControl.get_analog(E_CONTROLLER_ANALOG_RIGHT_X) / 1.27);                    // s on graph
+  float XStickPercent = StickSmoothingFunc(MainControl.get_analog(ANALOG_LEFT_Y) / 1.27 * reverseDriveMult);  // w on graph
+  float YStickPercent = StickSmoothingFunc(MainControl.get_analog(ANALOG_RIGHT_X) / 1.27);                    // s on graph
 
 
   const float ptsPerTick = 4;
@@ -710,7 +710,7 @@ void DrivingControl(bool isPrinting) {  // responsible for user control of the d
 
 
     // lowers the rotational output based on the lateral output, to prevent turning from overpowering fwd motion at high speeds
-    float rotationalMult = ((-0.001 * powf(lateralOutput, 2)) + (-0.25 * lateralOutput) + 80) / 100;
+    float rotationalMult = ((-0.001 * powf(lateralOutput, 2)) + (-0.25 * lateralOutput) + 70) / 100;
     // graphed here: [https://www.desmos.com/calculator/03mizqcj4f]
 
 
