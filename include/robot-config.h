@@ -28,11 +28,11 @@ Motor RDriveMidM(19, E_MOTOR_GEARSET_06, false, E_MOTOR_ENCODER_DEGREES);
 Motor RDriveBackM(15, E_MOTOR_GEARSET_18, true, E_MOTOR_ENCODER_DEGREES);  // 5.5w
 
 
-Motor LiftM(1, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
+Motor LiftM(18, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
 
 
 Motor IntakeM(10, E_MOTOR_GEARSET_06, false, E_MOTOR_ENCODER_DEGREES);
-Motor KickerM(4, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
+Motor KickerM(2, E_MOTOR_GEARSET_36, false, E_MOTOR_ENCODER_DEGREES);
 
 
 ADIDigitalOut WingPR('G');
@@ -40,7 +40,7 @@ ADIDigitalOut WingPL('H');
 
 
 Imu Inertial(16);  // initializing the Inertial sensor
-Rotation ArmRot(9);
+Rotation ArmRot(8);
 Rotation LOdem(20);
 Rotation ROdem(19);
 Rotation SOdem(18);

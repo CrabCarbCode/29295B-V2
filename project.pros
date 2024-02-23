@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": ":sob:",
+    "project_name": "debugAuton",
     "target": "v5",
     "templates": {
       "kernel": {
@@ -309,8 +309,9 @@
       }
     },
     "upload_options": {
-      "slot": 3,
-      "icon": "X"
+      "slot": 8,
+      "icon": "X",
+      "description": "Debug mode :>"
     }
   }
 }

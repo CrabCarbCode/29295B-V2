@@ -17,22 +17,7 @@ using namespace std;
 #pragma endregion
 
 
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-
-
-#pragma region NotesMaybeReadMe
-
-// here to document weird quirks of V5, VSCode, or this particular program
-
-/*
-
-Sometimes things just break, like the abs() function was demanding 0 args.
-
-Restarting the program fixed this Strings do not work in vex without external library shenanigans
-
-This is my code, and thus it is my god given right to use it as a diary. ignore the strange comments
-*/
-#pragma endregion
+// This is my code, and thus it is my god given right to use it as a diary. ignore the strange comments
 
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
@@ -56,7 +41,7 @@ const int ticksPerSec = 50;  // the number of 'ticks' in one second
 const int tickDeltaTime = 1000 / ticksPerSec;
 int minPrintingDelay = (ticksPerSec / tickDeltaTime) + 0.5;  // ticksPerSec / tickDeltaTime
 
-const float degPerCM = (360 / (4.1875 * Pi * 2.54)) * (84.0f / 36.0);  // # of degrees per centimeter = 360 / (2Pir" * 2.54cm/") * gear ratio
+const float degPerCM = (360 / (3.25 * Pi * 2.54)) * (60.0f / 36.0);  // # of degrees per centimeter = 360 / (2Pir" * 2.54cm/") * gear ratio
 
 int maxIntakeSpeed = 100;  // max intakeSpeed as a percent
 int maxKickerSpeed = 75;
@@ -66,7 +51,6 @@ int maxArmLevel = 2;
 int currentPage = 1;
 
 int selectedRoute = 0;
-int autonStep = 0;
 int minStepChangeTimeStamp;
 
 
@@ -118,20 +102,16 @@ bool RDrive(float desPowerPercent) {
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
-#pragma region printingChicanery
+#pragma region Printing
 
-
+// help
 void lcdControl() {
   if (globalTimer % 11 == 0) {  // refresh the screen every 11 ticks because 11 is a good number :)
     MainControl.clear();
   }
 
-  if (MainControl.get_digital_new_press(DIGITAL_LEFT) && currentPage > 0) {
-    currentPage--;
-  }
-  if (MainControl.get_digital_new_press(DIGITAL_RIGHT)) {
-    currentPage++;
-  }
+  if (MainControl.get_digital_new_press(DIGITAL_LEFT) && currentPage > 0) { currentPage--; }
+  if (MainControl.get_digital_new_press(DIGITAL_RIGHT)) { currentPage++; }
 }
 
 
@@ -151,11 +131,9 @@ const int pagesPerPrint[9] = {1, 1, 3, 2, 2, 1, 2, 2, 2};  // hardcoded list con
  **/
 
 int pageRangeFinder(int index) {                 // calculates which page(s) a
-  int startingPage = isPrintingList[0] ? 1 : 0;  // given function should print to
+  int startingPage = isPrintingList[0] ? 2 : 1;  // given function should print to
   // start on page 1
-  for (int j = 0; j < index; ++j) {
-    startingPage += isPrintingList[j] ? pagesPerPrint[j] : 0;
-  }
+  for (int j = 0; j < index; ++j) { startingPage += isPrintingList[j] ? pagesPerPrint[j] : 0; }
 
   return startingPage;
 }
@@ -344,8 +322,8 @@ float rI;
 
 float rO;
 
-int integralBoundL = 10 * degPerCM;
-int integralBoundR = 5;
+int integralBoundL = 3 * degPerCM;
+int integralBoundR = 1;
 
 // Storage variables for Lateral (forward/back) PID
 
@@ -377,10 +355,10 @@ float rotationalPower = 0;
 int prevErrorF = 0;
 
 bool ManageArm(bool isPrinting) {
-  const float armDeadband = 0.25;
+  const float armDeadband = 2.5;
 
-  const float fP = 1.0;
-  const float fD = 1.0;
+  const float fP = 0.75;
+  const float fD = 0.55;
   const float fO = 1.0;
 
   float desArmPos;
@@ -388,10 +366,10 @@ bool ManageArm(bool isPrinting) {
     case 0:
       break;
     case 1:
-      desArmPos = 0;
+      desArmPos = 5;
       break;
     case 2:
-      desArmPos = 698;
+      desArmPos = 1.96 * 360;
       break;
   }
 
@@ -527,13 +505,13 @@ bool isTuningTurns = true;
 
 void tunePID(bool isPrinting) {  // turns or oscilates repeatedly to test and tune the PID, allowing real-time tuning and adjustments
 
-  lP = 0.5;
+  lP = 0.0;
   lD = 0.0;
   lI = 0.0;
 
   lO = 1.0;
 
-  rP = 0.5;
+  rP = 0.0;
   rD = 0.0;
   rI = 0.0;
 
@@ -541,6 +519,10 @@ void tunePID(bool isPrinting) {  // turns or oscilates repeatedly to test and tu
 
   desiredDist = 0 * degPerCM;
   desiredHeading = 0;
+
+  int range = 0;
+  int goalDist = 0;
+  int goalRot = 0;
 
   while (true) {
     lcdControl();
@@ -572,16 +554,34 @@ void tunePID(bool isPrinting) {  // turns or oscilates repeatedly to test and tu
       rO += adjustFactor;
     }
 
+    if (MainControl.get_digital_new_press(DIGITAL_L2) && range > 0) { range++; }
+    if (MainControl.get_digital_new_press(DIGITAL_R2) && range < 2) { range--; }
+
 
     bool stepDone = AutonPID(true);
 
+    switch (range) {
+      case 0:
+        goalDist = 20 * degPerCM;
+        goalRot = 22.5;
+        break;
+      case 1:
+        goalDist = 50 * degPerCM;
+        goalRot = 90;
+        break;
+      case 2:
+        goalDist = 100 * degPerCM;
+        goalRot = 180;
+        break;
+    }
+
     // flips 180 or drives 1m in alternating directions at regular intervals
     if (globalTimer % (6 * ticksPerSec) < (3 * ticksPerSec)) {
-      desiredDist = isTuningTurns ? 0 : 15 * degPerCM;
-      desiredHeading = isTuningTurns ? 25 : 0;
+      desiredDist = isTuningTurns ? 0 : goalDist;
+      desiredHeading = isTuningTurns ? goalRot : 0;
     } else {
-      desiredDist = isTuningTurns ? 0 : -15 * degPerCM;
-      desiredHeading = isTuningTurns ? -25 : 0;
+      desiredDist = isTuningTurns ? 0 : -goalDist;
+      desiredHeading = isTuningTurns ? -goalRot : 0;
     }
 
 
@@ -676,9 +676,7 @@ float StickSmoothingFunc(float stickVal) {
 void DrivingControl(bool isPrinting) {  // responsible for user control of the drivetrainint gift
 
 
-  if (MainControl.get_digital_new_press(DIGITAL_A)) {
-    reverseDriveMult = (reverseDriveMult == 1) ? -1 : 1;
-  }
+  if (MainControl.get_digital_new_press(DIGITAL_B)) { reverseDriveMult = (reverseDriveMult == 1) ? -1 : 1; }
 
 
   // taking the position of the sticks and appplying gradient diffusion to them. Check the StickSmoothingFunc graph for details
@@ -754,9 +752,7 @@ void DrivingControl(bool isPrinting) {  // responsible for user control of the d
 
 
     if (isPrinting) {  // [4] Drivetrain - 2
-      if (!isPrintingList[4]) {
-        isPrintingList[4] = true;
-      }
+      if (!isPrintingList[4]) { isPrintingList[4] = true; }
 
 
       int startPage = pageRangeFinder(4);
@@ -787,9 +783,7 @@ void DrivingControl(bool isPrinting) {  // responsible for user control of the d
 
 
     if (isPrinting) {  // [4] Drivetrain - 2
-      if (!isPrintingList[4]) {
-        isPrintingList[4] = true;
-      }
+      if (!isPrintingList[4]) { isPrintingList[4] = true; }
 
 
       int startPage = pageRangeFinder(4);
@@ -891,39 +885,20 @@ void tuneDrive(bool isPrinting) {  // allows for user driving, with real time co
     lcdControl();
 
 
-    if (MainControl.get_digital_new_press(DIGITAL_X)) {
-      ACurveExtremity += changeAmount / 100000;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_A)) {
-      AMinAmount += changeAmount / 1000;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_B)) {
-      linearHarshness += changeAmount / 20;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_Y)) {
-      SCurveExtremity += changeAmount / 10;
-    }
+    if (MainControl.get_digital_new_press(DIGITAL_X)) { ACurveExtremity += changeAmount / 100000; }
+    if (MainControl.get_digital_new_press(DIGITAL_A)) { AMinAmount += changeAmount / 1000; }
+    if (MainControl.get_digital_new_press(DIGITAL_B)) { linearHarshness += changeAmount / 20; }
+    if (MainControl.get_digital_new_press(DIGITAL_Y)) { SCurveExtremity += changeAmount / 10; }
 
 
-    if (MainControl.get_digital_new_press(DIGITAL_UP)) {
-      changeAmount++;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_DOWN)) {
-      changeAmount--;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_L1)) {
-      changeAmount *= -1;
-    }
-
+    if (MainControl.get_digital_new_press(DIGITAL_UP)) { changeAmount++; }
+    if (MainControl.get_digital_new_press(DIGITAL_DOWN)) { changeAmount--; }
+    if (MainControl.get_digital_new_press(DIGITAL_L1)) { changeAmount *= -1; }
 
     DrivingControl(true);
 
-
-
     if (isPrinting) {  // [7] Drive Tune - 1
-      if (!isPrintingList[7]) {
-        isPrintingList[7] = true;
-      }
+      if (!isPrintingList[7]) { isPrintingList[7] = true; }
 
 
       int startPage = pageRangeFinder(7);
@@ -936,8 +911,6 @@ void tuneDrive(bool isPrinting) {  // allows for user driving, with real time co
       std::array<float, 2> HAndG = {linearHarshness, SCurveExtremity};
       PrintToController("g and h: ", HAndG, 3, 2, startPage);
     }
-
-
 
     globalTimer++;
     delay(tickDeltaTime);
@@ -988,39 +961,39 @@ int debugRoute(autonCommand currCommandList[]) {
   const int numOfCommands = 8;
 
 
-  currCommandList[1].lateralDist = 25;  // drives fwd 25 cm
+  // currCommandList[1].lateralDist = 25;  // drives fwd 25 cm
 
 
-  currCommandList[2].rotationalDist = 90;  // turn 90deg right
+  // currCommandList[2].rotationalDist = 90;  // turn 90deg right
 
 
-  currCommandList[3].lateralDist = 25;  // drive fwd with both wings out
-  currCommandList[3].wingPattern = 1;   //
+  // currCommandList[3].lateralDist = 25;  // drive fwd with both wings out
+  currCommandList[3].wingPattern = 1;  //
 
 
-  currCommandList[4].lateralDist = 25;     // retract wings, try a curved drive path right/fwd 25
-  currCommandList[4].rotationalDist = 90;  //
-  currCommandList[4].wingPattern = 0;      //
+  // currCommandList[4].lateralDist = 25;     // retract wings, try a curved drive path right/fwd 25
+  // currCommandList[4].rotationalDist = 90;  //
+  currCommandList[4].wingPattern = 0;  //
 
 
-  currCommandList[5].lateralDist = 25;   // raise the arm, run the intake and drive fwd 25cm
+  // currCommandList[5].lateralDist = 25;   // raise the arm, run the intake and drive fwd 25cm
   currCommandList[5].armPosition = 2;    //
   currCommandList[5].intakeSpeed = 100;  //
 
 
-  currCommandList[6].rotationalDist = 90;  // turn 90deg right,
-  currCommandList[6].kickerSpeed = 75;     // shut off the intake (automatic)
-  currCommandList[6].totalStepDelay = 5;   //
+  // currCommandList[6].rotationalDist = 90;  // turn 90deg right,
+  currCommandList[6].kickerSpeed = 75;    // shut off the intake (automatic)
+  currCommandList[6].totalStepDelay = 5;  //
 
 
-  currCommandList[7].armPosition = 1;       // turn 90deg left, lower arm
-  currCommandList[7].rotationalDist = -90;  //
+  currCommandList[7].armPosition = 1;  // turn 90deg left, lower arm
+  // currCommandList[7].rotationalDist = -90;  //
 
 
-  currCommandList[8].lateralDist = -25;  // drive bwd 25cm, to starting area
+  // currCommandList[8].lateralDist = -25;  // drive bwd 25cm, to starting area
 
 
-  currCommandList[9].rotationalDist = 720;  // try to go out of bounds, spin a lot
+  // currCommandList[9].rotationalDist = 720;  // try to go out of bounds, spin a lot
 
 
   return numOfCommands;
@@ -1424,31 +1397,47 @@ int driverSkillsRoute(autonCommand currCommandList[]) {
 void SetPIDTunings(int range) {
   switch (range) {
     case 0:  // close  ( < 20cm / > 22.5deg)
-      lP = 0.65;
-      lD = 0.25;
-      lI = 0.35;
-      lO = 1.9;
+      lP = 0.13;
+      lD = 0.05;
+      lI = 0.19;
+      lO = 0.65 * 0.5;
 
 
-      integralBoundL = 3;
+      integralBoundL = 5;
 
 
-      rP = 0.80;
-      rD = 0.55;
-      rI = 1.70;
-      rO = 2.0;
+      rP = 0.40;
+      rD = 0.35;
+      rI = 0.75;
+      rO = 1.0 * 0.5;
 
 
-      integralBoundR = 0.75;
+      integralBoundR = 1;
       break;
     case 1:  // medium (20cm < 60cm / 22.5deg < 90deg)
 
+      lP = 0.13;
+      lD = 0.05;
+      lI = 0.19;
+      lO = 0.75 * 0.5;
+
+
+      integralBoundL = 7;
+
+
+      rP = 0.40;
+      rD = 0.35;
+      rI = 0.75;
+      rO = 1.0 * 0.5;
+
+
+      integralBoundR = 1.5;
 
     case 2:  // long ( > 60cm / > 90deg)
       lP = 0.70;
       lD = 0.30;
       lI = 0.45;
-      lO = 1.0;
+      lO = 1.0 * 0.5;
 
 
       integralBoundL = 8;
@@ -1457,7 +1446,7 @@ void SetPIDTunings(int range) {
       rP = 1.25;
       rD = 0.40;
       rI = 0.30;
-      rO = 2.9;
+      rO = 2.9 * 0.5;
 
 
       integralBoundR = 4;
@@ -1561,6 +1550,8 @@ void autonomous() {
   int currAutonStep = 0;
   int maxAutonTime = 15 * ticksPerSec;  // default time alloted for game autonomous routines
   int totalNumOfCommands = 1;
+  int currKickerSpeed = 0;
+  int currIntakeSpeed = 0;
 
 
   // selectedRoute = x;
@@ -1591,6 +1582,7 @@ void autonomous() {
       break;
     case 7:
       totalNumOfCommands += debugRoute(commandList);
+      maxAutonTime = 120 * ticksPerSec;
       break;
   }
 
@@ -1600,36 +1592,37 @@ void autonomous() {
     const float heading = std::fmod(Inertial.get_heading(), 360.0f);
     const float currHeading = (heading > 180) ? (heading - 360) : heading;
 
-
+    ManageArm(false);
+    KickerM.move_velocity(2 * currKickerSpeed);
+    IntakeM.move_velocity(6 * currIntakeSpeed);
     lcdControl();
 
 
     bool isCurrStepComplete = AutonPID(true);
 
 
-    if (autonStep >= totalNumOfCommands) {  // temp. locks the program if auton route is complete
+    if (currAutonStep >= totalNumOfCommands) {  // temp. locks the program if auton route is complete
       currentPage = 1;
       FullDrive.move_velocity(0);
 
-      if (globalTimer % 11) {
-        MainControl.clear();
-      }
+      if (globalTimer % 11) { MainControl.clear(); }
 
 
       PrintToController("Out of bounds", 0, 0, 1, 1);
 
-
       globalTimer++;
       delay(tickDeltaTime);
-
 
       return;
 
 
     } else if ((MainControl.get_digital_new_press(DIGITAL_X)) && globalTimer > minStepChangeTimeStamp) {
-      //(MainControl.get_digital_new_press(DIGITAL_X))
+      //(MainControl.get_digital_new_press(DIGITAL_X) || isAutonStepComplete)
+
+      currAutonStep++;
+
       desiredDist += commandList[currAutonStep].lateralDist * degPerCM;
-      desiredHeading += commandList[currAutonStep].rotationalDist * degPerCM;
+      desiredHeading += commandList[currAutonStep].rotationalDist;
 
 
       if (abs(commandList[currAutonStep].lateralDist) > 60 || abs(commandList[currAutonStep].rotationalDist) > 90) {
@@ -1640,6 +1633,8 @@ void autonomous() {
         SetPIDTunings(0);
       }
 
+      currKickerSpeed = commandList[currAutonStep].kickerSpeed;
+      currIntakeSpeed = commandList[currAutonStep].intakeSpeed;
 
       switch (commandList[currAutonStep].wingPattern) {
         case 0:  // no out all in
@@ -1672,14 +1667,14 @@ void autonomous() {
     int startingPage = pageRangeFinder(2);
 
 
-    PrintToController("Step: ", autonStep, 2, 0, startingPage);
+    PrintToController("Step: ", currAutonStep, 2, 0, startingPage);
     PrintToController("DesDist: ", desiredDist, 4, 1, startingPage);
     PrintToController("DesHead: ", desiredHeading, 3, 2, startingPage);
 
 
-    PrintToController("OHeading: ", heading, 4, 0, startingPage + 1);
-    PrintToController("RHeading: ", currHeading, 4, 1, startingPage + 1);
-    PrintToController("ErrorH: ", proportionalErrorR, 3, 2, startingPage + 1);
+    PrintToController("Timer: ", globalTimer, 4, 0, startingPage + 1);
+    PrintToController("nStepTime: ", minStepChangeTimeStamp, 4, 1, startingPage + 1);
+    PrintToController("ArmLev: ", armLevel, 1, 2, startingPage + 1);
 
 
     PrintToController("FWingsOut?: ", commandList[currAutonStep].wingPattern, 1, 0, startingPage + 2);
@@ -1708,7 +1703,7 @@ void opcontrol() {
   // tunePID(true);
 
 
-  competition_initialize();
+  // competition_initialize();
   autonomous();
 
 
@@ -1738,8 +1733,7 @@ void opcontrol() {
 
 
     // switch activate second radio if controller gets disconnected
-    if (!MainControl.is_connected()) {
-    }
+    if (!MainControl.is_connected()) {}
 
 
     lcdControl();
