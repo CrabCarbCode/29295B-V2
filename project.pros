@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "debugAuton",
+    "project_name": "SDefence",
     "target": "v5",
     "templates": {
       "kernel": {
@@ -309,9 +309,9 @@
       }
     },
     "upload_options": {
-      "slot": 8,
-      "icon": "X",
-      "description": "Debug mode :>"
+      "slot": 1,
+      "icon": "planet",
+      "description": "High scoring"
     }
   }
 }

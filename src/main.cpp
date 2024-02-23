@@ -60,7 +60,7 @@ int minStepChangeTimeStamp;
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
-#pragma region HelperFunctions //unit conversions and whatnot
+#pragma region generalized //unit conversions and whatnot
 
 const char *toChar(std::string string) { return string.c_str(); }
 
@@ -110,8 +110,12 @@ void lcdControl() {
     MainControl.clear();
   }
 
-  if (MainControl.get_digital_new_press(DIGITAL_LEFT) && currentPage > 0) { currentPage--; }
-  if (MainControl.get_digital_new_press(DIGITAL_RIGHT)) { currentPage++; }
+  if (MainControl.get_digital_new_press(DIGITAL_LEFT) && currentPage > 0) {
+    currentPage--;
+  }
+  if (MainControl.get_digital_new_press(DIGITAL_RIGHT)) {
+    currentPage++;
+  }
 }
 
 
@@ -133,7 +137,9 @@ const int pagesPerPrint[9] = {1, 1, 3, 2, 2, 1, 2, 2, 2};  // hardcoded list con
 int pageRangeFinder(int index) {                 // calculates which page(s) a
   int startingPage = isPrintingList[0] ? 2 : 1;  // given function should print to
   // start on page 1
-  for (int j = 0; j < index; ++j) { startingPage += isPrintingList[j] ? pagesPerPrint[j] : 0; }
+  for (int j = 0; j < index; ++j) {
+    startingPage += isPrintingList[j] ? pagesPerPrint[j] : 0;
+  }
 
   return startingPage;
 }
@@ -165,762 +171,6 @@ void PrintToController(std::string prefix, const std::array<T, N> &data, int num
 
 
 #pragma endregion
-
-
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-
-
-#pragma region GPSAtHome
-
-// this is both my magnum opus and the worst thing I've ever done i hate everything so so much
-
-#pragma region relativeTracking
-
-
-const float gAccel = 9.806;
-
-std::array<double, 3> prevVelocity;
-
-std::array<double, 3> calculateKinematics(bool isPrinting, bool getVelocity) {  // tracks displacement / acceleration / velocity relative to the robot
-
-  const float deltaTime = tickDeltaTime / 1000;
-
-  pros::c::imu_accel_s_t InertialAccelReading = Inertial.get_accel();  // checking the inertial is costly, so we do it once and capture the result
-  std::array<double, 3> currAcceleration = {InertialAccelReading.x * gAccel, InertialAccelReading.y * gAccel, InertialAccelReading.z * gAccel};
-
-  std::array<double, 3> currVelocity = {0.0, 0.0, 0.0};
-  std::array<double, 3> distTravelled = {0.0, 0.0, 0.0};
-
-  for (int i = 0; i < 3; i++) {  // tracks velocity / distance travelled over the current tick in all 3 axis
-
-    currVelocity[i] = (currAcceleration[i] * deltaTime) + prevVelocity[i];
-    distTravelled[i] = (prevVelocity[i] * deltaTime) + (0.5 * currAcceleration[i] * powf(deltaTime, 2));
-
-    prevVelocity[i] = currVelocity[i];  // caches the velocity of the current tick for use in the next tick
-  }
-
-  if (isPrinting) {
-    if (!isPrintingList[6]) {  // [6] Kinematics - 2
-      isPrintingList[6] = true;
-    }
-
-    int startingPage = pageRangeFinder(6);
-
-    PrintToController("Time: ", globalTimer, 5, 0, startingPage);
-    PrintToController("Accel: ", currAcceleration, 3, 1, startingPage);
-    PrintToController("cVel: ", currVelocity, 3, 2, startingPage);
-
-    PrintToController("pVel: ", prevVelocity, 3, 1, startingPage + 1);
-    PrintToController("Displ: ", distTravelled, 3, 2, startingPage + 1);
-  }
-
-  return getVelocity ? currAcceleration : distTravelled;
-}
-
-
-#pragma endregion
-
-
-
-#pragma region globalTracking
-
-
-std::array<double, 3> globalCoordinates;
-std::array<double, 3> globalVelocities;
-std::array<double, 3> totalDist;  // temporary, curious to see what just tracking displacement does
-
-void updateGlobalPosition(bool isPrinting) {
-  // capturing values of displacement and velocity over the last tick
-  std::array<double, 3> currDisplacements = calculateKinematics(isPrinting, false);
-  std::array<double, 3> currVelocities = calculateKinematics(isPrinting, true);
-
-
-  for (int i = 0; i < 3; i++) {  // tracks displacement across all axis, slow and prolly doesn't work
-    totalDist[i] += calculateKinematics(true, false).at(i);
-  }
-
-  // identify component of displacement change that should be added to each coordinate
-  const float thetaHeading = (Inertial.get_heading() > 180) ? (Inertial.get_heading() - 360) : Inertial.get_heading();
-  const float thetaPitch = (Inertial.get_pitch() > 180) ? (Inertial.get_pitch() - 360) : Inertial.get_pitch();
-  const float thetaYaw = (Inertial.get_yaw() > 180) ? (Inertial.get_yaw() - 360) : Inertial.get_yaw();
-
-  const float cosThetaHeading = cosf(thetaHeading);
-  const float sinThetaHeading = sinf(thetaHeading);
-
-  const float cosThetaPitch = cosf(thetaPitch);
-  const float sinThetaPitch = sinf(thetaPitch);
-
-  const float cosThetaYaw = cosf(thetaYaw);
-  const float sinThetaYaw = sinf(thetaYaw);
-
-  // decomposing the displacement vectors calculated from the inertial, then reconstructing them into the change in coordinates
-  // this math REALLY fucking sucks, but I'm not sure theres a better / more efficient way to do this than hardcoding.
-  globalCoordinates[0] += currDisplacements.at(0) * cosThetaHeading * cosThetaPitch  // x component of forward displacement
-                          + currDisplacements.at(1) * sinThetaHeading * cosThetaYaw  // x component of sideways displacement
-                          + currDisplacements.at(2) * sinThetaPitch * sinThetaYaw;   // x component of vertical displacement
-
-  globalCoordinates[1] += currDisplacements.at(0) * sinThetaHeading * cosThetaPitch  // y component of forward displacement
-                          + currDisplacements.at(1) * cosThetaHeading * cosThetaYaw  // y component of sideways displacement
-                          + currDisplacements.at(2) * sinThetaPitch * sinThetaYaw;   // y component of vertical displacement
-
-  globalCoordinates[2] += currDisplacements.at(0) * sinThetaPitch                   // z component of forward displacement
-                          + currDisplacements.at(1) * sinThetaYaw                   // z component of sideways displacement
-                          + currDisplacements.at(2) * cosThetaPitch * cosThetaYaw;  // z component of vertical displacement
-
-  if (isPrinting) {
-    if (!isPrintingList[5]) {  // [5] GPS - 1
-      isPrintingList[5] = true;
-    }
-
-    int startingPage = pageRangeFinder(5);
-
-    PrintToController("Time: ", globalTimer, 3, 0, startingPage);
-    PrintToController("Displ: ", currDisplacements, 3, 1, startingPage);
-    PrintToController("Coords: ", globalCoordinates, 3, 2, startingPage);
-
-    PrintToController("Heading: %d", thetaHeading, 4, 0, 4);  // print angles
-    PrintToController("Pitch: %d", thetaPitch, 1, 4, 4);
-    PrintToController("Yaw: %d", thetaYaw, 2, 4, 4);
-  }
-}
-
-
-#pragma endregion
-
-#pragma endregion
-
-
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-
-
-#pragma region AutonControl //the code behind the autonomous Proportional Integral Derivative controller
-
-#pragma region Variables // holds all variables required for the PID controller
-
-// many of these are unneccesarily global / nonconstant, but I find the somewhat negligible innefficiencies
-// to be worth the ease of understanding / workability, especially for those newer to robotics and programming
-
-// control variables
-
-bool drivePIDIsEnabled = false;
-bool autonPIDIsEnabled = true;
-
-int desiredDist;  // temporary
-int desiredHeading;
-
-// tuning coefficients
-
-float lP;
-float lD;
-float lI;
-
-float lO;
-
-float rP;
-float rD;
-float rI;
-
-float rO;
-
-int integralBoundL = 3 * degPerCM;
-int integralBoundR = 1;
-
-// Storage variables for Lateral (forward/back) PID
-
-float previousErrorL = 0;  // position from last loop, MUST BE GLOBAL
-
-float proportionalErrorL;  // reported value - desired value = position
-float derivativeErrorL;    //(error - prevError)
-float integralErrorL;
-
-float lateralPower = 0;
-
-// Storage variables for Rotational (turning) PID
-
-float previousErrorR = 0;  // position from last loop, MUST BE GLOBAL
-
-float proportionalErrorR;  // reported value - desired value = position
-float derivativeErrorR;    //(error - prevError)
-float integralErrorR;
-
-float rotationalPower = 0;
-
-// the second set of "rotational" storage vars above are technically useless, as the code executes in such a way that only one set of vars is needed
-// to produce both outputs. however, readability is nice. change if memory ever becomes an issue
-
-#pragma endregion  // end of PID variable declaration
-
-#pragma region AuxiliaryFunctions
-
-int prevErrorF = 0;
-
-bool ManageArm(bool isPrinting) {
-  const float armDeadband = 2.5;
-
-  const float fP = 0.75;
-  const float fD = 0.55;
-  const float fO = 1.0;
-
-  float desArmPos;
-  switch (armLevel) {
-    case 0:
-      break;
-    case 1:
-      desArmPos = 5;
-      break;
-    case 2:
-      desArmPos = 1.96 * 360;
-      break;
-  }
-
-  const float currArmPos = ArmRot.get_position() / 100;
-
-  const float currErrorF = fP * (currArmPos - desArmPos);
-  const float currErrorD = fD * (currErrorF - prevErrorF) / 2;
-
-  if (isPrinting && isPrintingList[0]) {
-    PrintToController("Position: ", armLevel, 1, 0, 1);
-    PrintToController("Rotation: ", currArmPos, 5, 1, 1);
-    PrintToController("Error: ", currErrorF, 5, 2, 1);
-  }
-
-  prevErrorF = currErrorF;
-
-  if (fabs(currErrorF) > armDeadband) {  // if target has not been hit
-    LiftM.move_velocity(fO * (currErrorF + currErrorD));
-    return false;
-  } else {  // if target has been hit
-    LiftM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
-    LiftM.move_velocity(0);
-    return true;
-  }
-}
-
-
-#pragma endregion
-
-
-
-int avgMotorPosition = 0;
-
-bool AutonPID(bool isPrinting) {
-  if (autonPIDIsEnabled) {  // toggle so the PID can be disabled while placed on a separate thread
-    // sets currHeading from -180 < h < 180, meaning we turn the correct direction from error
-    const float absHeading = fabs(std::fmod(Inertial.get_heading(), 360.0f));
-    const float currHeading = (absHeading > 180) ? absHeading - 360 : absHeading;
-
-    const float absDesHead = std::fmod(desiredHeading, 360.0f);
-    const float desHead = (absDesHead > 180) ? std::fmod((absDesHead - 360), 180) : std::fmod((absDesHead), 180);
-
-
-    ///////////////////////////////////////
-    //////        Lateral PID        //////
-    ///////////////////////////////////////
-
-    avgMotorPosition = ((RDriveFrontM.get_position()) + (LDriveFrontM.get_position())) / 2;
-
-    proportionalErrorL = lP * (desiredDist - avgMotorPosition);     // proportional error
-    derivativeErrorL = lD * (proportionalErrorL - previousErrorL);  // derivative of error
-
-    // filters out the integral at short ranges (no I if |error| < constant lower limit, eg. 10cm),
-    // allowing it to be useful when needed without overpowering other elements
-    if (fabs(proportionalErrorL) > integralBoundL) {
-      integralErrorL += lI * (derivativeErrorL);
-    } else {
-      integralErrorL = 0;
-    }
-
-    lateralPower = (proportionalErrorL + derivativeErrorL + integralErrorL) * lO;
-
-    previousErrorL = proportionalErrorL;
-
-    ///////////////////////////////////////
-    //////      Rotational PID       //////
-    ///////////////////////////////////////
-
-    proportionalErrorR = rP * (desHead - currHeading);              // proportional error
-    derivativeErrorR = rD * (proportionalErrorR - previousErrorR);  // derivative of error
-
-    // filters out the integral at short ranges (no I if |error| < constant lower limit, eg. 10cm),
-    // allowing it to be useful when needed without overpowering other elements
-    if (fabs(proportionalErrorR) > integralBoundR) {
-      integralErrorR += rI * (derivativeErrorR);
-    } else {
-      integralErrorR = 0;
-    }
-
-    rotationalPower = (proportionalErrorR + derivativeErrorR + integralErrorR) * rO;
-
-    previousErrorR = proportionalErrorR;
-
-    ///////////////////////////////////////
-    //////        ending math        //////
-    ///////////////////////////////////////
-
-    LDrive(autonDriveMult * (lateralPower + rotationalPower));
-    RDrive(autonDriveMult * (lateralPower - rotationalPower));
-
-    if (isPrinting) {
-      if (!isPrintingList[3]) {  // [3] PID - 2
-        isPrintingList[3] = true;
-      }
-
-      int startingPage = pageRangeFinder(3);
-
-      PrintToController("Time: ", globalTimer, 5, 0, startingPage);
-      PrintToController("LOut: ", (autonDriveMult * (lateralPower + rotationalPower)), 5, 1, startingPage);
-      PrintToController("ROut: ", (autonDriveMult * (lateralPower + rotationalPower)), 5, 2, startingPage);
-
-      PrintToController("LError: ", proportionalErrorL, 5, 0, startingPage + 1);
-      PrintToController("LatOut: ", lateralPower, 5, 1, startingPage + 1);
-      PrintToController("RotOut: ", rotationalPower, 5, 2, startingPage + 1);
-    }
-  }
-
-  return (fabs(proportionalErrorL) <= (3 * degPerCM) && fabs(proportionalErrorR) <= 1.5) ? true : false;  // return true if done movement
-}
-
-
-#pragma region tuning
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////                                                                                                                 ////
-//                                                 PID TUNING INSTRUCTIONS:                                            //
-//   1. call the tunePID function in opcontrol()                                                                       //
-//   2. confirm that the P/I/D tuning variables in the "PIDVariables" region are set to 0.0, with the outputs at 1.0   //
-//   3. follow the control layout found here: [http://tinyurl.com/3zrb6zj5]                                            //
-//   4. increase the lP/rP coefficient(s) until the desired motion is completed with oscilations                       //
-//   5. increase the lD/rD coefficient(s) until the oscilations dampen out over time                                   //
-//   6. increase the lI/rI coefficient(s) until the motion is completed aggressively without oscilations               //
-//      (somewhat optional, as not all applications benefit from an integral controller)                               //
-//   7. increase the output coefficient(s) until the motion is completed with acceptable speed and precision           //
-//                                                                                                                     //
-//      as builds and use cases vary, you may need to fiddle with the values after initial tuning after more testing.  //
-//      generally the P & D components should be larger than the I, and values should be between 0.0 and 5.0.          //
-////                                                                                                                 ////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-float adjustFactor = 0.05;  // the increment by which PID variables change during manual tuning
-bool isTuningTurns = true;
-
-void tunePID(bool isPrinting) {  // turns or oscilates repeatedly to test and tune the PID, allowing real-time tuning and adjustments
-
-  lP = 0.0;
-  lD = 0.0;
-  lI = 0.0;
-
-  lO = 1.0;
-
-  rP = 0.0;
-  rD = 0.0;
-  rI = 0.0;
-
-  rO = 1.0;
-
-  desiredDist = 0 * degPerCM;
-  desiredHeading = 0;
-
-  int range = 0;
-  int goalDist = 0;
-  int goalRot = 0;
-
-  while (true) {
-    lcdControl();
-
-    if (MainControl.get_digital_new_press(DIGITAL_B)) {  // changes proportional coefficient
-      rP += isTuningTurns ? adjustFactor : 0;
-      lP += isTuningTurns ? 0 : adjustFactor;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_A)) {  // changes integral coefficient
-      rI += isTuningTurns ? adjustFactor : 0;
-      lI += isTuningTurns ? 0 : adjustFactor;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_Y)) {  // changes derivative coefficient
-      rD += isTuningTurns ? adjustFactor : 0;
-      lD += isTuningTurns ? 0 : adjustFactor;
-    }
-
-
-    if (MainControl.get_digital_new_press(DIGITAL_X)) {  // toggles increases/decreases to tuning variables
-      adjustFactor *= -1;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_UP)) {  // toggles between testing rotational / lateral drive
-      isTuningTurns = !isTuningTurns;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_R1)) {  // changes output power of lateral PID
-      lO += adjustFactor;
-    }
-    if (MainControl.get_digital_new_press(DIGITAL_L1)) {  // changes output power of rotational PID
-      rO += adjustFactor;
-    }
-
-    if (MainControl.get_digital_new_press(DIGITAL_L2) && range > 0) { range++; }
-    if (MainControl.get_digital_new_press(DIGITAL_R2) && range < 2) { range--; }
-
-
-    bool stepDone = AutonPID(true);
-
-    switch (range) {
-      case 0:
-        goalDist = 20 * degPerCM;
-        goalRot = 22.5;
-        break;
-      case 1:
-        goalDist = 50 * degPerCM;
-        goalRot = 90;
-        break;
-      case 2:
-        goalDist = 100 * degPerCM;
-        goalRot = 180;
-        break;
-    }
-
-    // flips 180 or drives 1m in alternating directions at regular intervals
-    if (globalTimer % (6 * ticksPerSec) < (3 * ticksPerSec)) {
-      desiredDist = isTuningTurns ? 0 : goalDist;
-      desiredHeading = isTuningTurns ? goalRot : 0;
-    } else {
-      desiredDist = isTuningTurns ? 0 : -goalDist;
-      desiredHeading = isTuningTurns ? -goalRot : 0;
-    }
-
-
-    if (isPrinting) {
-      if (!isPrintingList[8]) {  // [8] PID Tune - 2
-        isPrintingList[8] = true;
-      }
-
-
-      int startPage = pageRangeFinder(8);
-
-      PrintToController("PVar: ", (isTuningTurns ? rP : lP), 4, 0, startPage);
-      PrintToController("IVar: ", (isTuningTurns ? rI : lI), 4, 1, startPage);
-      PrintToController("DVar: ", (isTuningTurns ? rD : lD), 4, 2, startPage);
-
-      PrintToController("Turning?: ", isTuningTurns, 1, 0, startPage + 1);
-      PrintToController("lO: ", lO, 2, 1, startPage + 1);
-      PrintToController("rO: ", rO, 2, 2, startPage + 1);
-    }
-
-
-    globalTimer++;
-    delay(tickDeltaTime);
-  }
-}
-
-
-#pragma endregion  // tuning
-
-
-#pragma endregion  // end of PID block
-
-
-// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
-
-
-#pragma region UserControl
-
-int RAccelTime = 0;
-int LAccelTime = 0;
-
-int XStickStamp1 = 0;
-int YStickStamp1 = 0;
-int XStickStamp2 = 0;
-int YStickStamp2 = 0;
-int activeBrakeTimeStamp = 0;
-
-int reverseDriveMult = 1;
-
-// variables which control the shape/range of the acceleratory curve
-float ACurveExtremity = 0.1996;  // sigma
-float peakPos = 1;               // mu
-float AMinAmount = 0.24;         // kappa
-
-// variables which control the shape of the stick curve
-float linearHarshness = 0.6;  // g on graph
-float SCurveExtremity = 5.3;  // h on graph
-
-
-#pragma region HelperFunctions
-
-
-// i have no idea what im doing
-float AccelSmoothingFunc(int time) {  // returns a multiplier 0 to 1 based on time
-  float x = time / 100;               // converting the input from percentage to a decimal btween 0-1
-
-
-  const float multiplier =
-      (0.5 / (ACurveExtremity * sqrt(2 * Pi))) * powf(e, (-0.5 * pow(((AMinAmount * x - AMinAmount * peakPos) / ACurveExtremity), 2)));
-  return time >= (100) ? multiplier : 1;
-}  // function graphed here: [https://www.desmos.com/calculator/y0fwlh6j47]
-
-
-
-// i now have some idea what im doing
-float StickSmoothingFunc(float stickVal) {
-  float curveExponent = (abs(stickVal) - 100) / (10 * ACurveExtremity);
-  float linearExponent = (-1 / (10 * linearHarshness));
-
-
-  return (stickVal * (powf(e, linearExponent) + ((1 - powf(e, linearExponent)) * powf(e, curveExponent))));
-}  // function graphed here: [https://www.desmos.com/calculator/ti4hn57sa7]
-
-
-#pragma endregion
-
-
-
-#pragma region MainFunctions
-
-
-void DrivingControl(bool isPrinting) {  // responsible for user control of the drivetrainint gift
-
-
-  if (MainControl.get_digital_new_press(DIGITAL_B)) { reverseDriveMult = (reverseDriveMult == 1) ? -1 : 1; }
-
-
-  // taking the position of the sticks and appplying gradient diffusion to them. Check the StickSmoothingFunc graph for details
-  // X stick covers fwd/back, Y stick covers turning
-
-
-  float XStickPercent = StickSmoothingFunc(MainControl.get_analog(ANALOG_LEFT_Y) / 1.27 * reverseDriveMult);  // w on graph
-  float YStickPercent = StickSmoothingFunc(MainControl.get_analog(ANALOG_RIGHT_X) / 1.27);                    // s on graph
-
-
-  const float ptsPerTick = 4;
-
-
-  // filter out stick drift / nonpressed sticks. saves resources by skipping calculations when not driving
-  if ((abs(XStickPercent) + abs(YStickPercent)) >= deadband) {
-    int fullStopThreshold = 150;
-
-
-    // inreasing or decreasing the acceleration functions' timer
-    LAccelTime += ((LAccelTime <= 100 && XStickPercent > deadband) || LAccelTime < 0) ? ptsPerTick : -ptsPerTick;  // Y(x) on graph
-    RAccelTime += ((RAccelTime <= 100 && YStickPercent > deadband) || RAccelTime < 0) ? 1 : -1;                    // X(x) on graph
-
-
-
-    // applying the acceleratory curve to the stick inputs, multiplies the stick values by the output of the accel smoothing function
-
-
-    int lateralOutput = AccelSmoothingFunc(LAccelTime) * XStickPercent;
-
-
-    // lowers the rotational output based on the lateral output, to prevent turning from overpowering fwd motion at high speeds
-    float rotationalMult = ((-0.001 * powf(lateralOutput, 2)) + (-0.25 * lateralOutput) + 70) / 100;
-    // graphed here: [https://www.desmos.com/calculator/03mizqcj4f]
-
-
-    int rotationalOutput = (rotationalMult * AccelSmoothingFunc(RAccelTime) * YStickPercent);  // ((100 - abs(lateralOutput)) / 100)
-
-
-    // converting the fwd/bckwd/turning power into output values for the left and right halves of the drivetrain, then driving
-
-
-    int leftOutput = ((lateralOutput + rotationalOutput));
-    int rightOutput = ((lateralOutput - rotationalOutput));
-
-
-    bool latFullStop = ((abs(XStickStamp1 - XStickPercent) > fullStopThreshold) || (abs(XStickStamp2 - XStickPercent) > fullStopThreshold));
-    bool rotFullStop = ((abs(YStickStamp1 - XStickPercent) > fullStopThreshold) || (abs(YStickStamp2 - XStickPercent) > fullStopThreshold));
-
-
-    // implementing hard stops if sticks are flicked the opposite way
-    if (latFullStop || rotFullStop) {
-      LDrive(leftOutput);  // slightly moves in the new stick direction, opposite to the previous
-      RDrive(rightOutput);
-
-
-      activeBrakeTimeStamp = globalTimer;
-    } else if (timeSincePoint(activeBrakeTimeStamp) <= 3) {  // brake for a fraction of a second to kill momentum
-      LDrive(0);
-      RDrive(0);
-    } else {
-      LDrive(0.95 * leftOutput);  // stepping up the output from 0-100% to 0-600rpm with a little headroom
-      RDrive(0.95 * rightOutput);
-    }
-
-
-    if (globalTimer % 6) {
-      XStickStamp1 = XStickPercent;
-      YStickStamp1 = YStickPercent;
-    } else if (globalTimer % 6 == 3) {
-      XStickStamp2 = XStickPercent;
-      YStickStamp2 = YStickPercent;
-    }
-
-
-    if (isPrinting) {  // [4] Drivetrain - 2
-      if (!isPrintingList[4]) { isPrintingList[4] = true; }
-
-
-      int startPage = pageRangeFinder(4);
-
-
-      PrintToController("Time: ", globalTimer, 5, 0, startPage);
-      PrintToController("Reversed?: ", reverseDriveMult, 5, 1, startPage);
-      PrintToController("Accel: ", LAccelTime, 4, 2, startPage);
-
-
-      PrintToController("OutAdj: ", rotationalMult, 5, 0, startPage + 1);
-      PrintToController("LOut: ", lateralOutput, 5, 1, startPage + 1);
-      PrintToController("ROut: ", rotationalOutput, 5, 2, startPage + 1);
-    }
-
-
-
-  } else {  // if not want move, dont move
-    LDrive(0);
-    RDrive(0);
-
-
-    LAccelTime -= (LAccelTime > 0) ? ptsPerTick : -ptsPerTick;
-    RAccelTime -= (RAccelTime > 0) ? ptsPerTick : -ptsPerTick;
-
-
-    // its unfortunate that I have to write the printing setup twice, but this way we avoid calculations when not driving
-
-
-    if (isPrinting) {  // [4] Drivetrain - 2
-      if (!isPrintingList[4]) { isPrintingList[4] = true; }
-
-
-      int startPage = pageRangeFinder(4);
-
-
-      PrintToController("Time: ", globalTimer, 5, 0, startPage);
-      PrintToController("Reversed?: ", reverseDriveMult, 5, 1, startPage);
-      PrintToController("Accel: ", LAccelTime, 4, 0, startPage);
-
-
-      PrintToController("OutAdj: ", 0.0, 1, 0, startPage + 1);
-      PrintToController("LOut: ", 0.0, 1, 1, startPage + 1);
-      PrintToController("ROut: ", 0.0, 1, 2, startPage + 1);
-    }
-  }
-}  // graphed and simulated at [https://www.desmos.com/calculator/4dse2rfj], modelled in % power output by default. Graph may be outdated
-
-
-#pragma endregion
-
-
-
-#pragma region AuxiliaryFunctions
-
-
-// handles user control of intake
-void RCIntakeControls() { IntakeM.move_velocity(maxIntakeSpeed * 6 * (MainControl.get_digital(DIGITAL_R2) - MainControl.get_digital(DIGITAL_L2))); }
-
-
-void KickerControl() {
-  bool kickerButton = (SideControl.is_connected()) ? SideControl.get_digital(DIGITAL_A) : MainControl.get_digital(DIGITAL_A);
-  KickerM.move_velocity(maxKickerSpeed * kickerButton);  // if not pressed, 0 * x, if pressed, 1 * x
-}
-
-
-void ControlArm() {
-  // not a fan of this solution for switching which controller is in charge of the arm, but I can't think of a generalized one right now
-
-
-  bool UpButton = (SideControl.is_connected()) ? SideControl.get_digital_new_press(DIGITAL_UP) : MainControl.get_digital_new_press(DIGITAL_UP);
-  bool DownButton = (SideControl.is_connected()) ? SideControl.get_digital_new_press(DIGITAL_DOWN) : MainControl.get_digital_new_press(DIGITAL_DOWN);
-
-
-  if (UpButton && armLevel < maxArmLevel) {
-    LiftM.set_brake_mode(E_MOTOR_BRAKE_COAST);
-    armLevel++;
-  }
-  if (DownButton && armLevel > 1) {
-    LiftM.set_brake_mode(E_MOTOR_BRAKE_COAST);
-    armLevel--;
-  }
-}
-
-bool LWingLockedOut = false;
-bool RWingLockedOut = false;
-
-void WingsControl() {  // controls... wings
-
-
-  if (MainControl.get_digital_new_press(DIGITAL_L1)) {
-    LWingLockedOut = !LWingLockedOut;
-    WingPL.set_value(LWingLockedOut);
-  }
-
-
-  if (MainControl.get_digital_new_press(DIGITAL_R1)) {
-    RWingLockedOut = !RWingLockedOut;
-    WingPR.set_value(RWingLockedOut);
-  }
-}
-
-
-#pragma endregion
-
-
-
-#pragma region Tuning
-
-
-void tuneDrive(bool isPrinting) {  // allows for user driving, with real time control over drive coefficients
-  // default settings for acceleratory / stick curves
-
-
-  isPrintingList[7] = true;  // Drive Tuning - disabled
-
-
-  ACurveExtremity = 0.19948;  // sigma
-  AMinAmount = 0.235;         // kappa
-
-
-  linearHarshness = 0.2;  // g on graph
-  SCurveExtremity = 4.7;  // h on graph
-
-
-  float changeAmount = 1;
-
-
-  while (true) {
-    lcdControl();
-
-
-    if (MainControl.get_digital_new_press(DIGITAL_X)) { ACurveExtremity += changeAmount / 100000; }
-    if (MainControl.get_digital_new_press(DIGITAL_A)) { AMinAmount += changeAmount / 1000; }
-    if (MainControl.get_digital_new_press(DIGITAL_B)) { linearHarshness += changeAmount / 20; }
-    if (MainControl.get_digital_new_press(DIGITAL_Y)) { SCurveExtremity += changeAmount / 10; }
-
-
-    if (MainControl.get_digital_new_press(DIGITAL_UP)) { changeAmount++; }
-    if (MainControl.get_digital_new_press(DIGITAL_DOWN)) { changeAmount--; }
-    if (MainControl.get_digital_new_press(DIGITAL_L1)) { changeAmount *= -1; }
-
-    DrivingControl(true);
-
-    if (isPrinting) {  // [7] Drive Tune - 1
-      if (!isPrintingList[7]) { isPrintingList[7] = true; }
-
-
-      int startPage = pageRangeFinder(7);
-
-
-      PrintToController("kappa: ", ACurveExtremity, 7, 0, startPage);
-      PrintToController("sigma: ", AMinAmount, 5, 1, startPage);
-
-
-      std::array<float, 2> HAndG = {linearHarshness, SCurveExtremity};
-      PrintToController("g and h: ", HAndG, 3, 2, startPage);
-    }
-
-    globalTimer++;
-    delay(tickDeltaTime);
-  }
-}
-
-#pragma endregion
-
-#pragma endregion
-
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
@@ -1393,67 +643,6 @@ int driverSkillsRoute(autonCommand currCommandList[]) {
 #pragma endregion
 
 
-// PID tunings
-void SetPIDTunings(int range) {
-  switch (range) {
-    case 0:  // close  ( < 20cm / > 22.5deg)
-      lP = 0.13;
-      lD = 0.05;
-      lI = 0.19;
-      lO = 0.65 * 0.5;
-
-
-      integralBoundL = 5;
-
-
-      rP = 0.40;
-      rD = 0.35;
-      rI = 0.75;
-      rO = 1.0 * 0.5;
-
-
-      integralBoundR = 1;
-      break;
-    case 1:  // medium (20cm < 60cm / 22.5deg < 90deg)
-
-      lP = 0.13;
-      lD = 0.05;
-      lI = 0.19;
-      lO = 0.75 * 0.5;
-
-
-      integralBoundL = 7;
-
-
-      rP = 0.40;
-      rD = 0.35;
-      rI = 0.75;
-      rO = 1.0 * 0.5;
-
-
-      integralBoundR = 1.5;
-
-    case 2:  // long ( > 60cm / > 90deg)
-      lP = 0.70;
-      lD = 0.30;
-      lI = 0.45;
-      lO = 1.0 * 0.5;
-
-
-      integralBoundL = 8;
-
-
-      rP = 1.25;
-      rD = 0.40;
-      rI = 0.30;
-      rO = 2.9 * 0.5;
-
-
-      integralBoundR = 4;
-  }
-}
-
-
 
 #pragma region printingConfigs
 
@@ -1513,6 +702,850 @@ void userControlPrinting() {
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
+#pragma region GPSAtHome
+
+// this is both my magnum opus and the worst thing I've ever done i hate everything so so much
+
+#pragma region relativeTracking
+
+
+const float gAccel = 9.806;
+
+std::array<double, 3> prevVelocity;
+
+std::array<double, 3> calculateKinematics(bool isPrinting, bool getVelocity) {  // tracks displacement / acceleration / velocity relative to the robot
+
+  const float deltaTime = tickDeltaTime / 1000;
+
+  pros::c::imu_accel_s_t InertialAccelReading = Inertial.get_accel();  // checking the inertial is costly, so we do it once and capture the result
+  std::array<double, 3> currAcceleration = {InertialAccelReading.x * gAccel, InertialAccelReading.y * gAccel, InertialAccelReading.z * gAccel};
+
+  std::array<double, 3> currVelocity = {0.0, 0.0, 0.0};
+  std::array<double, 3> distTravelled = {0.0, 0.0, 0.0};
+
+  for (int i = 0; i < 3; i++) {  // tracks velocity / distance travelled over the current tick in all 3 axis
+
+    currVelocity[i] = (currAcceleration[i] * deltaTime) + prevVelocity[i];
+    distTravelled[i] = (prevVelocity[i] * deltaTime) + (0.5 * currAcceleration[i] * powf(deltaTime, 2));
+
+    prevVelocity[i] = currVelocity[i];  // caches the velocity of the current tick for use in the next tick
+  }
+
+  if (isPrinting) {
+    if (!isPrintingList[6]) {  // [6] Kinematics - 2
+      isPrintingList[6] = true;
+    }
+
+    int startingPage = pageRangeFinder(6);
+
+    PrintToController("Time: ", globalTimer, 5, 0, startingPage);
+    PrintToController("Accel: ", currAcceleration, 3, 1, startingPage);
+    PrintToController("cVel: ", currVelocity, 3, 2, startingPage);
+
+    PrintToController("pVel: ", prevVelocity, 3, 1, startingPage + 1);
+    PrintToController("Displ: ", distTravelled, 3, 2, startingPage + 1);
+  }
+
+  return getVelocity ? currAcceleration : distTravelled;
+}
+
+
+#pragma endregion
+
+
+
+#pragma region globalTracking
+
+
+std::array<double, 3> globalCoordinates;
+std::array<double, 3> globalVelocities;
+std::array<double, 3> totalDist;  // temporary, curious to see what just tracking displacement does
+
+void updateGlobalPosition(bool isPrinting) {
+  // capturing values of displacement and velocity over the last tick
+  std::array<double, 3> currDisplacements = calculateKinematics(isPrinting, false);
+  std::array<double, 3> currVelocities = calculateKinematics(isPrinting, true);
+
+
+  for (int i = 0; i < 3; i++) {  // tracks displacement across all axis, slow and prolly doesn't work
+    totalDist[i] += calculateKinematics(true, false).at(i);
+  }
+
+  // identify component of displacement change that should be added to each coordinate
+  const float thetaHeading = (Inertial.get_heading() > 180) ? (Inertial.get_heading() - 360) : Inertial.get_heading();
+  const float thetaPitch = (Inertial.get_pitch() > 180) ? (Inertial.get_pitch() - 360) : Inertial.get_pitch();
+  const float thetaYaw = (Inertial.get_yaw() > 180) ? (Inertial.get_yaw() - 360) : Inertial.get_yaw();
+
+  const float cosThetaHeading = cosf(thetaHeading);
+  const float sinThetaHeading = sinf(thetaHeading);
+
+  const float cosThetaPitch = cosf(thetaPitch);
+  const float sinThetaPitch = sinf(thetaPitch);
+
+  const float cosThetaYaw = cosf(thetaYaw);
+  const float sinThetaYaw = sinf(thetaYaw);
+
+  // decomposing the displacement vectors calculated from the inertial, then reconstructing them into the change in coordinates
+  // this math REALLY fucking sucks, but I'm not sure theres a better / more efficient way to do this than hardcoding.
+  globalCoordinates[0] += currDisplacements.at(0) * cosThetaHeading * cosThetaPitch  // x component of forward displacement
+                          + currDisplacements.at(1) * sinThetaHeading * cosThetaYaw  // x component of sideways displacement
+                          + currDisplacements.at(2) * sinThetaPitch * sinThetaYaw;   // x component of vertical displacement
+
+  globalCoordinates[1] += currDisplacements.at(0) * sinThetaHeading * cosThetaPitch  // y component of forward displacement
+                          + currDisplacements.at(1) * cosThetaHeading * cosThetaYaw  // y component of sideways displacement
+                          + currDisplacements.at(2) * sinThetaPitch * sinThetaYaw;   // y component of vertical displacement
+
+  globalCoordinates[2] += currDisplacements.at(0) * sinThetaPitch                   // z component of forward displacement
+                          + currDisplacements.at(1) * sinThetaYaw                   // z component of sideways displacement
+                          + currDisplacements.at(2) * cosThetaPitch * cosThetaYaw;  // z component of vertical displacement
+
+  if (isPrinting) {
+    if (!isPrintingList[5]) {  // [5] GPS - 1
+      isPrintingList[5] = true;
+    }
+
+    int startingPage = pageRangeFinder(5);
+
+    PrintToController("Time: ", globalTimer, 3, 0, startingPage);
+    PrintToController("Displ: ", currDisplacements, 3, 1, startingPage);
+    PrintToController("Coords: ", globalCoordinates, 3, 2, startingPage);
+
+    PrintToController("Heading: %d", thetaHeading, 4, 0, 4);  // print angles
+    PrintToController("Pitch: %d", thetaPitch, 1, 4, 4);
+    PrintToController("Yaw: %d", thetaYaw, 2, 4, 4);
+  }
+}
+
+
+#pragma endregion
+
+#pragma endregion
+
+
+// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
+
+#pragma region AutonControl //the code behind the autonomous Proportional Integral Derivative controller
+
+#pragma region Variables // holds all variables required for the PID controller
+
+// many of these are unneccesarily global / nonconstant, but I find the somewhat negligible innefficiencies
+// to be worth the ease of understanding / workability, especially for those newer to robotics and programming
+
+// control variables
+
+bool drivePIDIsEnabled = false;
+bool autonPIDIsEnabled = true;
+
+int desiredDist;  // temporary
+int desiredHeading;
+
+// tuning coefficients
+
+float lP;
+float lD;
+float lI;
+
+float lO;
+
+float rP;
+float rD;
+float rI;
+
+float rO;
+
+int integralBoundL = 3 * degPerCM;
+int integralBoundR = 1;
+
+// Storage variables for Lateral (forward/back) PID
+
+float previousErrorL = 0;  // position from last loop, MUST BE GLOBAL
+
+float proportionalErrorL;  // reported value - desired value = position
+float derivativeErrorL;    //(error - prevError)
+float integralErrorL;
+
+float lateralPower = 0;
+
+// Storage variables for Rotational (turning) PID
+
+float previousErrorR = 0;  // position from last loop, MUST BE GLOBAL
+
+float proportionalErrorR;  // reported value - desired value = position
+float derivativeErrorR;    //(error - prevError)
+float integralErrorR;
+
+float rotationalPower = 0;
+
+// the second set of "rotational" storage vars above are technically useless, as the code executes in such a way that only one set of vars is needed
+// to produce both outputs. however, readability is nice. change if memory ever becomes an issue
+
+
+// PID tunings
+void SetPIDTunings(int range) {
+  switch (range) {
+    case 0:  // close  ( < 20cm / > 22.5deg)
+      lP = 0.09;
+      lD = 0.05;
+      lI = 0.20;
+      lO = 1.00;
+
+
+      integralBoundL = 2.0;
+
+
+      rP = 0.21;
+      rD = 0.25;
+      rI = 0.75;
+      rO = 2.50;
+
+
+      integralBoundR = 0.75;
+      break;
+    case 1:  // medium (20cm < 60cm / 22.5deg < 90deg)
+
+      lP = 0.11;
+      lD = 0.10;
+      lI = 0.40;
+      lO = 0.95;
+
+
+      integralBoundL = 5;
+
+
+      rP = 0.45;
+      rD = 0.20;
+      rI = 0.70;
+      rO = 1.10;
+
+
+      integralBoundR = 1.2;
+
+    case 2:  // long ( > 60cm / > 90deg)
+      lP = 0.15;
+      lD = 0.10;
+      lI = 0.35;
+      lO = 0.85;
+
+
+      integralBoundL = 8;
+
+
+      rP = 0.32;
+      rD = 0.30;
+      rI = 0.75;
+      rO = 1.40;
+
+
+      integralBoundR = 1.8;
+  }
+}
+
+#pragma endregion  // end of PID variable declaration
+
+#pragma region AuxiliaryFunctions
+
+int prevErrorF = 0;
+
+bool ManageArm(bool isPrinting) {
+  const float armDeadband = 2.5;
+
+  const float fP = 0.75;
+  const float fD = 0.55;
+  const float fO = 1.0;
+
+  float desArmPos;
+  switch (armLevel) {
+    case 0:
+      break;
+    case 1:
+      desArmPos = 5;
+      break;
+    case 2:
+      desArmPos = 1.96 * 360;
+      break;
+  }
+
+  const float currArmPos = ArmRot.get_position() / 100;
+
+  const float currErrorF = fP * (currArmPos - desArmPos);
+  const float currErrorD = fD * (currErrorF - prevErrorF) / 2;
+
+  if (isPrinting && isPrintingList[0]) {
+    PrintToController("Position: ", armLevel, 1, 0, 1);
+    PrintToController("Rotation: ", currArmPos, 5, 1, 1);
+    PrintToController("Error: ", currErrorF, 5, 2, 1);
+  }
+
+  prevErrorF = currErrorF;
+
+  if (fabs(currErrorF) > armDeadband) {  // if target has not been hit
+    LiftM.move_velocity(fO * (currErrorF + currErrorD));
+    return false;
+  } else {  // if target has been hit
+    LiftM.set_brake_mode(E_MOTOR_BRAKE_HOLD);
+    LiftM.move_velocity(0);
+    return true;
+  }
+}
+
+
+#pragma endregion
+
+
+
+int avgMotorPosition = 0;
+
+bool AutonPID(bool isPrinting) {
+  if (autonPIDIsEnabled) {  // toggle so the PID can be disabled while placed on a separate thread
+    // sets currHeading from -180 < h < 180, meaning we turn the correct direction from error
+    const float absHeading = fabs(std::fmod(Inertial.get_heading(), 360.0f));
+    const float currHeading = (absHeading > 180) ? absHeading - 360 : absHeading;
+
+    const float absDesHead = std::fmod(desiredHeading, 360.0f);
+    const float desHead = (absDesHead > 180) ? std::fmod((absDesHead - 360), 180) : std::fmod((absDesHead), 180);
+
+
+    ///////////////////////////////////////
+    //////        Lateral PID        //////
+    ///////////////////////////////////////
+
+    avgMotorPosition = ((RDriveFrontM.get_position()) + (LDriveFrontM.get_position())) / 2;
+
+    proportionalErrorL = lP * (desiredDist - avgMotorPosition);     // proportional error
+    derivativeErrorL = lD * (proportionalErrorL - previousErrorL);  // derivative of error
+
+    // filters out the integral at short ranges (no I if |error| < constant lower limit, eg. 10cm),
+    // allowing it to be useful when needed without overpowering other elements
+    if (fabs(proportionalErrorL) > integralBoundL) {
+      integralErrorL += lI * (derivativeErrorL);
+    } else {
+      integralErrorL = 0;
+    }
+
+    lateralPower = (proportionalErrorL + derivativeErrorL + integralErrorL) * lO;
+
+    previousErrorL = proportionalErrorL;
+
+    ///////////////////////////////////////
+    //////      Rotational PID       //////
+    ///////////////////////////////////////
+
+    proportionalErrorR = rP * (desHead - currHeading);              // proportional error
+    derivativeErrorR = rD * (proportionalErrorR - previousErrorR);  // derivative of error
+
+    // filters out the integral at short ranges (no I if |error| < constant lower limit, eg. 10cm),
+    // allowing it to be useful when needed without overpowering other elements
+    if (fabs(proportionalErrorR) > integralBoundR) {
+      integralErrorR += rI * (derivativeErrorR);
+    } else {
+      integralErrorR = 0;
+    }
+
+    rotationalPower = (proportionalErrorR + derivativeErrorR + integralErrorR) * rO;
+
+    previousErrorR = proportionalErrorR;
+
+    ///////////////////////////////////////
+    //////        ending math        //////
+    ///////////////////////////////////////
+
+    LDrive(autonDriveMult * (lateralPower + rotationalPower));
+    RDrive(autonDriveMult * (lateralPower - rotationalPower));
+
+    if (isPrinting) {
+      if (!isPrintingList[3]) {  // [3] PID - 2
+        isPrintingList[3] = true;
+      }
+
+      int startingPage = pageRangeFinder(3);
+
+      PrintToController("Time: ", globalTimer, 5, 0, startingPage);
+      PrintToController("LOut: ", (autonDriveMult * (lateralPower + rotationalPower)), 5, 1, startingPage);
+      PrintToController("ROut: ", (autonDriveMult * (lateralPower + rotationalPower)), 5, 2, startingPage);
+
+      PrintToController("LError: ", proportionalErrorL, 5, 0, startingPage + 1);
+      PrintToController("LatOut: ", lateralPower, 5, 1, startingPage + 1);
+      PrintToController("RotOut: ", rotationalPower, 5, 2, startingPage + 1);
+    }
+  }
+
+  return (fabs(proportionalErrorL) <= (3 * degPerCM) && fabs(proportionalErrorR) <= 1.5) ? true : false;  // return true if done movement
+}
+
+
+#pragma region tuning
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////                                                                                                                 ////
+//                                                 PID TUNING INSTRUCTIONS:                                            //
+//   1. call the tunePID function in opcontrol()                                                                       //
+//   2. confirm that the P/I/D tuning variables in the "PIDVariables" region are set to 0.0, with the outputs at 1.0   //
+//   3. follow the control layout found here: [http://tinyurl.com/3zrb6zj5]                                            //
+//   4. increase the lP/rP coefficient(s) until the desired motion is completed with oscilations                       //
+//   5. increase the lD/rD coefficient(s) until the oscilations dampen out over time                                   //
+//   6. increase the lI/rI coefficient(s) until the motion is completed aggressively without oscilations               //
+//      (somewhat optional, as not all applications benefit from an integral controller)                               //
+//   7. increase the output coefficient(s) until the motion is completed with acceptable speed and precision           //
+//                                                                                                                     //
+//      as builds and use cases vary, you may need to fiddle with the values after initial tuning after more testing.  //
+//      generally the P & D components should be larger than the I, and values should be between 0.0 and 5.0.          //
+////                                                                                                                 ////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float adjustFactor = 0.05;  // the increment by which PID variables change during manual tuning
+bool isTuningTurns = false;
+
+void tunePID(bool isPrinting) {  // turns or oscilates repeatedly to test and tune the PID, allowing real-time tuning and adjustments
+
+  lP = 0.0;
+  lD = 0.0;
+  lI = 0.0;
+
+  lO = 1.0;
+
+  rP = 0.0;
+  rD = 0.0;
+  rI = 0.0;
+
+  rO = 1.0;
+
+  desiredDist = 0 * degPerCM;
+  desiredHeading = 0;
+
+  int range = 0;
+  int goalDist = 0;
+  int goalRot = 0;
+
+  while (true) {
+    lcdControl();
+
+    if (MainControl.get_digital_new_press(DIGITAL_B)) {  // changes proportional coefficient
+      rP += isTuningTurns ? adjustFactor : 0;
+      lP += isTuningTurns ? 0 : adjustFactor;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_A)) {  // changes integral coefficient
+      rI += isTuningTurns ? adjustFactor : 0;
+      lI += isTuningTurns ? 0 : adjustFactor;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_Y)) {  // changes derivative coefficient
+      rD += isTuningTurns ? adjustFactor : 0;
+      lD += isTuningTurns ? 0 : adjustFactor;
+    }
+
+
+    if (MainControl.get_digital_new_press(DIGITAL_X)) {  // toggles increases/decreases to tuning variables
+      adjustFactor *= -1;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_UP)) {  // toggles between testing rotational / lateral drive
+      isTuningTurns = !isTuningTurns;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_R1)) {  // changes output power of lateral PID
+      lO += adjustFactor;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_L1)) {  // changes output power of rotational PID
+      rO += adjustFactor;
+    }
+
+    if (MainControl.get_digital_new_press(DIGITAL_L2) && range < 2) {
+      range++;
+      SetPIDTunings(range);
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_R2) && range > 0) {
+      range--;
+      SetPIDTunings(range);
+    }
+
+
+    bool stepDone = AutonPID(true);
+
+    switch (range) {
+      case 0:
+        goalDist = 10 * degPerCM;
+        goalRot = 10;
+        break;
+      case 1:
+        goalDist = 30 * degPerCM;
+        goalRot = 45;
+        break;
+      case 2:
+        goalDist = 60 * degPerCM;
+        goalRot = 90;
+        break;
+    }
+
+    // flips 180 or drives 1m in alternating directions at regular intervals
+    if (globalTimer % (6 * ticksPerSec) < (3 * ticksPerSec)) {
+      desiredDist = isTuningTurns ? 0 : goalDist;
+      desiredHeading = isTuningTurns ? goalRot : 0;
+    } else {
+      desiredDist = isTuningTurns ? 0 : -goalDist;
+      desiredHeading = isTuningTurns ? -goalRot : 0;
+    }
+
+
+    if (isPrinting) {
+      if (!isPrintingList[8]) {  // [8] PID Tune - 2
+        isPrintingList[8] = true;
+      }
+
+
+      int startPage = pageRangeFinder(8);
+
+      PrintToController("PVar: ", (isTuningTurns ? rP : lP), 4, 0, startPage);
+      PrintToController("IVar: ", (isTuningTurns ? rI : lI), 4, 1, startPage);
+      PrintToController("DVar: ", (isTuningTurns ? rD : lD), 4, 2, startPage);
+
+      PrintToController("Range: ", range, 1, 0, startPage + 1);
+      PrintToController("lO: ", lO, 2, 1, startPage + 1);
+      PrintToController("rO: ", rO, 2, 2, startPage + 1);
+    }
+
+
+    globalTimer++;
+    delay(tickDeltaTime);
+  }
+}
+
+
+#pragma endregion  // tuning
+
+
+#pragma endregion  // end of PID block
+
+
+// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
+
+#pragma region UserControl
+
+int RAccelTime = 0;
+int LAccelTime = 0;
+
+int XStickStamp1 = 0;
+int YStickStamp1 = 0;
+int XStickStamp2 = 0;
+int YStickStamp2 = 0;
+int activeBrakeTimeStamp = 0;
+
+int reverseDriveMult = 1;
+
+// variables which control the shape/range of the acceleratory curve
+float ACurveExtremity = 0.1996;  // sigma
+float peakPos = 1;               // mu
+float AMinAmount = 0.24;         // kappa
+
+// variables which control the shape of the stick curve
+float linearHarshness = 0.6;  // g on graph
+float SCurveExtremity = 5.3;  // h on graph
+
+
+#pragma region HelperFunctions
+
+
+// i have no idea what im doing
+float AccelSmoothingFunc(int time) {  // returns a multiplier 0 to 1 based on time
+  float x = time / 100;               // converting the input from percentage to a decimal btween 0-1
+
+
+  const float multiplier =
+      (0.5 / (ACurveExtremity * sqrt(2 * Pi))) * powf(e, (-0.5 * pow(((AMinAmount * x - AMinAmount * peakPos) / ACurveExtremity), 2)));
+  return time >= (100) ? multiplier : 1;
+}  // function graphed here: [https://www.desmos.com/calculator/y0fwlh6j47]
+
+
+
+// i now have some idea what im doing
+float StickSmoothingFunc(float stickVal) {
+  float curveExponent = (abs(stickVal) - 100) / (10 * ACurveExtremity);
+  float linearExponent = (-1 / (10 * linearHarshness));
+
+
+  return (stickVal * (powf(e, linearExponent) + ((1 - powf(e, linearExponent)) * powf(e, curveExponent))));
+}  // function graphed here: [https://www.desmos.com/calculator/ti4hn57sa7]
+
+
+#pragma endregion
+
+
+
+#pragma region MainFunctions
+
+
+void DrivingControl(bool isPrinting) {  // responsible for user control of the drivetrainint gift
+
+
+  if (MainControl.get_digital_new_press(DIGITAL_B)) {
+    reverseDriveMult = (reverseDriveMult == 1) ? -1 : 1;
+  }
+
+
+  // taking the position of the sticks and appplying gradient diffusion to them. Check the StickSmoothingFunc graph for details
+  // X stick covers fwd/back, Y stick covers turning
+
+
+  float XStickPercent = StickSmoothingFunc(MainControl.get_analog(ANALOG_LEFT_Y) / 1.27 * reverseDriveMult);  // w on graph
+  float YStickPercent = StickSmoothingFunc(MainControl.get_analog(ANALOG_RIGHT_X) / 1.27);                    // s on graph
+
+
+  const float ptsPerTick = 4;
+
+
+  // filter out stick drift / nonpressed sticks. saves resources by skipping calculations when not driving
+  if ((abs(XStickPercent) + abs(YStickPercent)) >= deadband) {
+    int fullStopThreshold = 150;
+
+
+    // inreasing or decreasing the acceleration functions' timer
+    LAccelTime += ((LAccelTime <= 100 && XStickPercent > deadband) || LAccelTime < 0) ? ptsPerTick : -ptsPerTick;  // Y(x) on graph
+    RAccelTime += ((RAccelTime <= 100 && YStickPercent > deadband) || RAccelTime < 0) ? 1 : -1;                    // X(x) on graph
+
+
+
+    // applying the acceleratory curve to the stick inputs, multiplies the stick values by the output of the accel smoothing function
+
+
+    int lateralOutput = AccelSmoothingFunc(LAccelTime) * XStickPercent;
+
+
+    // lowers the rotational output based on the lateral output, to prevent turning from overpowering fwd motion at high speeds
+    float rotationalMult = ((-0.001 * powf(lateralOutput, 2)) + (-0.25 * lateralOutput) + 70) / 100;
+    // graphed here: [https://www.desmos.com/calculator/03mizqcj4f]
+
+
+    int rotationalOutput = (rotationalMult * AccelSmoothingFunc(RAccelTime) * YStickPercent);  // ((100 - abs(lateralOutput)) / 100)
+
+
+    // converting the fwd/bckwd/turning power into output values for the left and right halves of the drivetrain, then driving
+
+
+    int leftOutput = ((lateralOutput + rotationalOutput));
+    int rightOutput = ((lateralOutput - rotationalOutput));
+
+
+    bool latFullStop = ((abs(XStickStamp1 - XStickPercent) > fullStopThreshold) || (abs(XStickStamp2 - XStickPercent) > fullStopThreshold));
+    bool rotFullStop = ((abs(YStickStamp1 - XStickPercent) > fullStopThreshold) || (abs(YStickStamp2 - XStickPercent) > fullStopThreshold));
+
+
+    // implementing hard stops if sticks are flicked the opposite way
+    if (latFullStop || rotFullStop) {
+      LDrive(leftOutput);  // slightly moves in the new stick direction, opposite to the previous
+      RDrive(rightOutput);
+
+
+      activeBrakeTimeStamp = globalTimer;
+    } else if (timeSincePoint(activeBrakeTimeStamp) <= 3) {  // brake for a fraction of a second to kill momentum
+      LDrive(0);
+      RDrive(0);
+    } else {
+      LDrive(0.95 * leftOutput);  // stepping up the output from 0-100% to 0-600rpm with a little headroom
+      RDrive(0.95 * rightOutput);
+    }
+
+
+    if (globalTimer % 6) {
+      XStickStamp1 = XStickPercent;
+      YStickStamp1 = YStickPercent;
+    } else if (globalTimer % 6 == 3) {
+      XStickStamp2 = XStickPercent;
+      YStickStamp2 = YStickPercent;
+    }
+
+
+    if (isPrinting) {  // [4] Drivetrain - 2
+      if (!isPrintingList[4]) {
+        isPrintingList[4] = true;
+      }
+
+
+      int startPage = pageRangeFinder(4);
+
+
+      PrintToController("Time: ", globalTimer, 5, 0, startPage);
+      PrintToController("Reversed?: ", reverseDriveMult, 5, 1, startPage);
+      PrintToController("Accel: ", LAccelTime, 4, 2, startPage);
+
+
+      PrintToController("OutAdj: ", rotationalMult, 5, 0, startPage + 1);
+      PrintToController("LOut: ", lateralOutput, 5, 1, startPage + 1);
+      PrintToController("ROut: ", rotationalOutput, 5, 2, startPage + 1);
+    }
+
+
+
+  } else {  // if not want move, dont move
+    LDrive(0);
+    RDrive(0);
+
+
+    LAccelTime -= (LAccelTime > 0) ? ptsPerTick : -ptsPerTick;
+    RAccelTime -= (RAccelTime > 0) ? ptsPerTick : -ptsPerTick;
+
+
+    // its unfortunate that I have to write the printing setup twice, but this way we avoid calculations when not driving
+
+
+    if (isPrinting) {  // [4] Drivetrain - 2
+      if (!isPrintingList[4]) {
+        isPrintingList[4] = true;
+      }
+
+
+      int startPage = pageRangeFinder(4);
+
+
+      PrintToController("Time: ", globalTimer, 5, 0, startPage);
+      PrintToController("Reversed?: ", reverseDriveMult, 5, 1, startPage);
+      PrintToController("Accel: ", LAccelTime, 4, 0, startPage);
+
+
+      PrintToController("OutAdj: ", 0.0, 1, 0, startPage + 1);
+      PrintToController("LOut: ", 0.0, 1, 1, startPage + 1);
+      PrintToController("ROut: ", 0.0, 1, 2, startPage + 1);
+    }
+  }
+}  // graphed and simulated at [https://www.desmos.com/calculator/4dse2rfj], modelled in % power output by default. Graph may be outdated
+
+
+#pragma endregion
+
+
+
+#pragma region AuxiliaryFunctions
+
+
+// handles user control of intake
+void RCIntakeControls() { IntakeM.move_velocity(maxIntakeSpeed * 6 * (MainControl.get_digital(DIGITAL_R2) - MainControl.get_digital(DIGITAL_L2))); }
+
+
+void KickerControl() {
+  bool kickerButton = (SideControl.is_connected()) ? SideControl.get_digital(DIGITAL_A) : MainControl.get_digital(DIGITAL_A);
+  KickerM.move_velocity(maxKickerSpeed * kickerButton);  // if not pressed, 0 * x, if pressed, 1 * x
+}
+
+
+void ControlArm() {
+  // not a fan of this solution for switching which controller is in charge of the arm, but I can't think of a generalized one right now
+
+
+  bool UpButton = (SideControl.is_connected()) ? SideControl.get_digital_new_press(DIGITAL_UP) : MainControl.get_digital_new_press(DIGITAL_UP);
+  bool DownButton = (SideControl.is_connected()) ? SideControl.get_digital_new_press(DIGITAL_DOWN) : MainControl.get_digital_new_press(DIGITAL_DOWN);
+
+
+  if (UpButton && armLevel < maxArmLevel) {
+    LiftM.set_brake_mode(E_MOTOR_BRAKE_COAST);
+    armLevel++;
+  }
+  if (DownButton && armLevel > 1) {
+    LiftM.set_brake_mode(E_MOTOR_BRAKE_COAST);
+    armLevel--;
+  }
+}
+
+bool LWingLockedOut = false;
+bool RWingLockedOut = false;
+
+void WingsControl() {  // controls... wings
+
+
+  if (MainControl.get_digital_new_press(DIGITAL_L1)) {
+    LWingLockedOut = !LWingLockedOut;
+    WingPL.set_value(LWingLockedOut);
+  }
+
+
+  if (MainControl.get_digital_new_press(DIGITAL_R1)) {
+    RWingLockedOut = !RWingLockedOut;
+    WingPR.set_value(RWingLockedOut);
+  }
+}
+
+
+#pragma endregion
+
+
+
+#pragma region Tuning
+
+
+void tuneDrive(bool isPrinting) {  // allows for user driving, with real time control over drive coefficients
+  // default settings for acceleratory / stick curves
+
+
+  isPrintingList[7] = true;  // Drive Tuning - disabled
+
+
+  ACurveExtremity = 0.19948;  // sigma
+  AMinAmount = 0.235;         // kappa
+
+
+  linearHarshness = 0.2;  // g on graph
+  SCurveExtremity = 4.7;  // h on graph
+
+
+  float changeAmount = 1;
+
+
+  while (true) {
+    lcdControl();
+
+
+    if (MainControl.get_digital_new_press(DIGITAL_X)) {
+      ACurveExtremity += changeAmount / 100000;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_A)) {
+      AMinAmount += changeAmount / 1000;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_B)) {
+      linearHarshness += changeAmount / 20;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_Y)) {
+      SCurveExtremity += changeAmount / 10;
+    }
+
+
+    if (MainControl.get_digital_new_press(DIGITAL_UP)) {
+      changeAmount++;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_DOWN)) {
+      changeAmount--;
+    }
+    if (MainControl.get_digital_new_press(DIGITAL_L1)) {
+      changeAmount *= -1;
+    }
+
+    DrivingControl(true);
+
+    if (isPrinting) {  // [7] Drive Tune - 1
+      if (!isPrintingList[7]) {
+        isPrintingList[7] = true;
+      }
+
+
+      int startPage = pageRangeFinder(7);
+
+
+      PrintToController("kappa: ", ACurveExtremity, 7, 0, startPage);
+      PrintToController("sigma: ", AMinAmount, 5, 1, startPage);
+
+
+      std::array<float, 2> HAndG = {linearHarshness, SCurveExtremity};
+      PrintToController("g and h: ", HAndG, 3, 2, startPage);
+    }
+
+    globalTimer++;
+    delay(tickDeltaTime);
+  }
+}
+
+#pragma endregion
+
+#pragma endregion
+
+
+// // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
+
+
 #pragma region Pregame //code which executes before a game starts
 
 void initialize() {
@@ -1538,10 +1571,9 @@ void competition_initialize() {  // auton selector
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
-
 void autonomous() {
   autonPrinting();
-  selectedRoute = 7;
+  selectedRoute = 1;
 
 
   autonCommand commandList[50];
@@ -1605,7 +1637,9 @@ void autonomous() {
       currentPage = 1;
       FullDrive.move_velocity(0);
 
-      if (globalTimer % 11) { MainControl.clear(); }
+      if (globalTimer % 11) {
+        MainControl.clear();
+      }
 
 
       PrintToController("Out of bounds", 0, 0, 1, 1);
@@ -1672,14 +1706,14 @@ void autonomous() {
     PrintToController("DesHead: ", desiredHeading, 3, 2, startingPage);
 
 
-    PrintToController("Timer: ", globalTimer, 4, 0, startingPage + 1);
-    PrintToController("nStepTime: ", minStepChangeTimeStamp, 4, 1, startingPage + 1);
+    PrintToController("range: ", 1, 4, 0, startingPage + 1);
+    PrintToController("nStepTime: ", minStepChangeTimeStamp - globalTimer, 4, 1, startingPage + 1);
     PrintToController("ArmLev: ", armLevel, 1, 2, startingPage + 1);
 
 
     PrintToController("FWingsOut?: ", commandList[currAutonStep].wingPattern, 1, 0, startingPage + 2);
-    PrintToController("FArmPos: ", commandList[currAutonStep].armPosition, 1, 1, startingPage + 2);
-    PrintToController("KickerSpeed: ", commandList[currAutonStep].kickerSpeed, 3, 2, startingPage + 2);
+    PrintToController("IntakeSpeed: ", currIntakeSpeed, 3, 1, startingPage + 2);
+    PrintToController("KickerSpeed: ", currKickerSpeed, 3, 2, startingPage + 2);
 
 
 #pragma endregion  // Diagnostics
@@ -1716,6 +1750,8 @@ void opcontrol() {
   userControlPrinting();
   isPrintingList[0] = true;
 
+  bool kickerFiring = false;
+
 
   while (true) {
     DrivingControl(true);
@@ -1724,8 +1760,12 @@ void opcontrol() {
     ControlArm();
     ManageArm(true);
 
+    if (MainControl.get_digital_new_press(DIGITAL_A)) {
+      kickerFiring = !kickerFiring;
+      KickerM.move_velocity(2 * maxKickerSpeed * kickerFiring);
+    }
 
-    if (MainControl.get_digital(DIGITAL_A)) {
+    if (MainControl.get_digital(DIGITAL_Y)) {
       KickerM.move_velocity(2 * maxKickerSpeed);
     } else {
       KickerM.move_velocity(0);
@@ -1733,7 +1773,8 @@ void opcontrol() {
 
 
     // switch activate second radio if controller gets disconnected
-    if (!MainControl.is_connected()) {}
+    if (!MainControl.is_connected()) {
+    }
 
 
     lcdControl();
