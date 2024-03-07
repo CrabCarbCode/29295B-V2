@@ -60,9 +60,9 @@ int minStepChangeTimeStamp;
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
 
-#pragma region generalized //unit conversions and whatnot
+#pragma region GeneralFunctions //unit conversions and whatnot
 
-const char *toChar(std::string string) { return string.c_str(); }
+const char* toChar(std::string string) { return string.c_str(); }
 
 
 int toInt(float val) { return val; }
@@ -94,6 +94,24 @@ bool RDrive(float desPowerPercent) {
 
   // return true if motors are hitting desired speeds within 0.5%
   return IsWithinRange((RDriveFrontM.get_actual_velocity() - (6 * desPowerPercent)), -3, 3) ? true : false;
+}
+
+bool primaryOut = true;
+
+bool ManageRadios() {
+  char* uplinkKey = "giving";
+  char* downlinkKey = "recieving";
+  char* emptyPacket;
+
+  /*if (primaryOut) {
+    PrimaryRadio.transmit_raw((void*)uplinkKey, sizeof(*data) * sizeof(data));
+    SecondaryRadio.transmit_raw((void*)emptyPacket, sizeof(*data) * sizeof(data));
+  } else {
+    SecondaryRadio.transmit_raw((void*)uplinkKey, sizeof(*data) * sizeof(data));
+    PrimaryRadio.transmit_raw((void*)emptyPacket, sizeof(*data) * sizeof(data));
+  }
+
+  PrimaryRadio.transmit_raw((void*)uplinkKey, sizeof(*data) * sizeof(data));*/
 }
 
 #pragma endregion
@@ -156,7 +174,7 @@ void PrintToController(std::string prefix, double data, int numOfDigits, int row
 
 
 template <typename T, size_t N>
-void PrintToController(std::string prefix, const std::array<T, N> &data, int numOfDigits, int row, int page) {  // handles multiple numbers
+void PrintToController(std::string prefix, const std::array<T, N>& data, int numOfDigits, int row, int page) {  // handles multiple numbers
   if (currentPage == page && (globalTimer % 9 == (row * 3))) {
     std::string output = prefix;
 
@@ -170,7 +188,9 @@ void PrintToController(std::string prefix, const std::array<T, N> &data, int num
 }
 
 
+
 #pragma endregion
+
 
 // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // // //
 
@@ -251,6 +271,7 @@ int debugRoute(autonCommand currCommandList[]) {
 
 
 // Defensive routes
+
 
 int safeDefenceRoute(autonCommand currCommandList[]) {
   // dist /rotation: in cm / degrees (relative to current position)
@@ -342,7 +363,6 @@ int rushDefenceRoute(autonCommand currCommandList[]) {
 
 
 // Offensive routes
-
 
 
 int safeOffenceRoute(autonCommand currCommandList[]) {
@@ -1738,7 +1758,7 @@ void opcontrol() {
 
 
   // competition_initialize();
-  autonomous();
+  // autonomous();
 
 
   // tuneDrive(true);
@@ -1751,7 +1771,6 @@ void opcontrol() {
   isPrintingList[0] = true;
 
   bool kickerFiring = false;
-
 
   while (true) {
     DrivingControl(true);
@@ -1769,11 +1788,6 @@ void opcontrol() {
       KickerM.move_velocity(2 * maxKickerSpeed);
     } else {
       KickerM.move_velocity(0);
-    }
-
-
-    // switch activate second radio if controller gets disconnected
-    if (!MainControl.is_connected()) {
     }
 
 
